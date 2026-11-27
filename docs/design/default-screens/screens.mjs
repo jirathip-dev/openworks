@@ -261,7 +261,6 @@ const jobHours = section("hours", "Hours", [
       row("hp4", "Sam Ito", "2 days", "15 of 40 h"),
     ]),
   ]),
-  note("hours-from", "Read only: hours come from the daily reports. Thu and Fri are not reported yet."),
 ], { side: true });
 
 const plannerJob = {
@@ -303,14 +302,14 @@ const plannerJob = {
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const load = [
-  [null, 3, 4, 4, 2, 1, null],
-  [5, 6, 3, 4, "off", 1, null],
-  [2, 3, 5, 6, 3, 1, null],
-  [4, 2, 1, null, null, null, null],
-  [null, null, 2, 3, 1, null, null],
+  [3, 3, 3, 3, 2, 1, 0],
+  [2, 3, 3, 3, "off", 1, 1],
+  [2, 3, 4, 4, 3, 1, 0],
+  [3, 2, 2, 1, 1, 0, 0],
+  [0, 1, 2, 2, 0, 0, 0],
 ];
 const monthDay = (filled) =>
-  section("day", filled ? "Wed 9 Dec" : "This month", filled
+  section("day", filled ? "Wed 9 Dec · 3 jobs" : "This month", filled
     ? [list("day-rows", [
         row("m1", "Install, Bay 6", "Crew A", "4 days", { tap: { open: "/jobs/1044" } }),
         row("m2", "Prep, Block B", "Crew B", "3 days", { tap: { open: "/jobs/1049" } }),
@@ -320,6 +319,7 @@ const monthDay = (filled) =>
 
 const plannerMonth = {
   name: "planner-month",
+  css: { filled: ["month.css"] },
   tall: 620,
   phone: 1000,
   states: {
@@ -335,7 +335,8 @@ const plannerMonth = {
         id: "month",
         title: "December 2026: jobs a day",
         columns: days,
-        grid: load.map((w, i) => ({ name: `${["30 Nov", "7 Dec", "14 Dec", "21 Dec", "28 Dec"][i]}`, cells: w.map((v) => (v === null ? { label: "·" } : typeof v === "string" ? { label: v } : { value: v })) })),
+        grid: load.map((w, i) => ({ name: `${["30 Nov", "7 Dec", "14 Dec", "21 Dec", "28 Dec"][i]}`, cells: w.map((v) => (typeof v === "string" ? { label: v } : { value: v, label: String(v) })) })),
+        scale: { min: 0, max: 5 },
         selected: { row: "7 Dec", column: "Wed" },
         tap: { action: "pick-day" },
       },

@@ -463,11 +463,6 @@
               ]
             }
           ]
-        },
-        {
-          "type": "text",
-          "id": "hours-from",
-          "markdown": "Read only: hours come from the daily reports. Thu and Fri are not reported yet."
         }
       ],
       "side": true

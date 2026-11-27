@@ -40,3 +40,5 @@
 .lqc,.lqc.num{grid-column:auto}
 .lqx{grid-column:auto;grid-row:auto}
 }
+.heat .hmw>table{width:calc(100% + 2 * var(--seam))}
+.heat thead th,.heat tbody td{width:auto;max-width:none}

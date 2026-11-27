@@ -113,25 +113,32 @@
           "name": "30 Nov",
           "cells": [
             {
-              "label": "·"
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 3
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 4
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 4
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 2
+              "value": 2,
+              "label": "2"
             },
             {
-              "value": 1
+              "value": 1,
+              "label": "1"
             },
             {
-              "label": "·"
+              "value": 0,
+              "label": "0"
             }
           ]
         },
@@ -139,25 +146,31 @@
           "name": "7 Dec",
           "cells": [
             {
-              "value": 5
+              "value": 2,
+              "label": "2"
             },
             {
-              "value": 6
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 3
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 4
+              "value": 3,
+              "label": "3"
             },
             {
               "label": "off"
             },
             {
-              "value": 1
+              "value": 1,
+              "label": "1"
             },
             {
-              "label": "·"
+              "value": 1,
+              "label": "1"
             }
           ]
         },
@@ -165,25 +178,32 @@
           "name": "14 Dec",
           "cells": [
             {
-              "value": 2
+              "value": 2,
+              "label": "2"
             },
             {
-              "value": 3
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 5
+              "value": 4,
+              "label": "4"
             },
             {
-              "value": 6
+              "value": 4,
+              "label": "4"
             },
             {
-              "value": 3
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 1
+              "value": 1,
+              "label": "1"
             },
             {
-              "label": "·"
+              "value": 0,
+              "label": "0"
             }
           ]
         },
@@ -191,25 +211,32 @@
           "name": "21 Dec",
           "cells": [
             {
-              "value": 4
+              "value": 3,
+              "label": "3"
             },
             {
-              "value": 2
+              "value": 2,
+              "label": "2"
             },
             {
-              "value": 1
+              "value": 2,
+              "label": "2"
             },
             {
-              "label": "·"
+              "value": 1,
+              "label": "1"
             },
             {
-              "label": "·"
+              "value": 1,
+              "label": "1"
             },
             {
-              "label": "·"
+              "value": 0,
+              "label": "0"
             },
             {
-              "label": "·"
+              "value": 0,
+              "label": "0"
             }
           ]
         },
@@ -217,29 +244,40 @@
           "name": "28 Dec",
           "cells": [
             {
-              "label": "·"
+              "value": 0,
+              "label": "0"
             },
             {
-              "label": "·"
+              "value": 1,
+              "label": "1"
             },
             {
-              "value": 2
+              "value": 2,
+              "label": "2"
             },
             {
-              "value": 3
+              "value": 2,
+              "label": "2"
             },
             {
-              "value": 1
+              "value": 0,
+              "label": "0"
             },
             {
-              "label": "·"
+              "value": 0,
+              "label": "0"
             },
             {
-              "label": "·"
+              "value": 0,
+              "label": "0"
             }
           ]
         }
       ],
+      "scale": {
+        "min": 0,
+        "max": 5
+      },
       "selected": {
         "row": "7 Dec",
         "column": "Wed"
@@ -251,7 +289,7 @@
     {
       "type": "section",
       "id": "day",
-      "header": "Wed 9 Dec",
+      "header": "Wed 9 Dec · 3 jobs",
       "blocks": [
         {
           "type": "list",

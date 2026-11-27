@@ -1,0 +1,4 @@
+.heat .hmo>*{display:none}
+.heat .hmo::before{content:"Wed 9 Dec · 3 jobs";color:var(--fg);font-weight:600}
+.heat .nd{font-size:0}
+.heat .nd::after{content:"Holiday, off";font-size:var(--fs-meta)}
