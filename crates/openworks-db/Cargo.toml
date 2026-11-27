@@ -7,3 +7,6 @@ repository.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+openworks-core = { path = "../openworks-core", version = "0.1.0" }
