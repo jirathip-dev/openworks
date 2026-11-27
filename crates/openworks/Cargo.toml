@@ -10,5 +10,5 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-openworks-core = { path = "../openworks-core", version = "0.1.0" }
-openworks-db = { path = "../openworks-db", version = "0.1.0" }
+openworks-core.workspace = true
+openworks-db.workspace = true

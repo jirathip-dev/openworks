@@ -28,7 +28,7 @@ def write(path, text):
 
 def set_version(cargo, web):
     manifest = REPO / "Cargo.toml"
-    manifest.write_text(re.sub(r'^version = "[^"]+"', f'version = "{cargo}"', manifest.read_text(), count=1, flags=re.M))
+    manifest.write_text(re.sub(r'version = "[^"]+"', f'version = "{cargo}"', manifest.read_text()))
     package = json.loads((REPO / "web/package.json").read_text())
     package["version"] = web
     (REPO / "web/package.json").write_text(json.dumps(package))
