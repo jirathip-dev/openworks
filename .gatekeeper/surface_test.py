@@ -45,9 +45,9 @@ class Surface(unittest.TestCase):
         shutil.rmtree(REPO, ignore_errors=True)
         files = subprocess.run(["git", "ls-files", "-co", "--exclude-standard"], cwd=ROOT, check=True, capture_output=True, text=True)
         for name in files.stdout.split():
-            if (ROOT / name).is_file():
+            if (ROOT / name).is_file() or (ROOT / name).is_symlink():
                 (REPO / name).parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(ROOT / name, REPO / name)
+                shutil.copy2(ROOT / name, REPO / name, follow_symlinks=False)
         (REPO / "node_modules").symlink_to(ROOT / "node_modules")
         self.core = (REPO / LIB).read_text()
         write(LIB, self.core + RUST_API)
