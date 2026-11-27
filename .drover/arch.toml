@@ -1,0 +1,237 @@
+frozen = [".github/workflows/ci.yml"]
+shared = ["Cargo.toml", ".drover/arch.toml", ".drover/rules.md", "README.md"]
+
+[[collect]]
+dir = "migrations"
+glob = "*.sql"
+
+[[collect]]
+dir = "templates"
+glob = "*"
+
+[[collect]]
+dir = ".gatekeeper/gates"
+glob = "*.toml"
+
+[comments]
+policy = "strict"
+
+[[layer]]
+name = "core"
+paths = ["crates/openworks-core/src/**"]
+mods = ["openworks_core"]
+
+[[layer]]
+name = "db"
+paths = ["crates/openworks-db/src/**"]
+mods = ["openworks_db"]
+may_use = ["core"]
+
+[[layer]]
+name = "app"
+paths = ["crates/openworks/src/**"]
+mods = ["openworks"]
+may_use = ["core", "db"]
+
+[[layer]]
+name = "server"
+paths = ["crates/openworks-server/src/**"]
+mods = ["openworks_server"]
+may_use = ["core", "db", "app"]
+
+[[layer]]
+name = "pack"
+paths = ["packs/*/src/**"]
+mods = []
+may_use = ["core"]
+
+[[ban]]
+pattern = "self-hosted"
+paths = [".github/**"]
+reason = "CI runs on GitHub-hosted runners only: a fork's pull request must never reach a machine we own"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "pull_request_target"
+paths = [".github/**"]
+reason = "a fork's pull request runs with a read-only token and no secret: pull_request only"
+comments = true
+
+[[ban]]
+pattern = "secrets: inherit"
+paths = [".github/**"]
+reason = "each secret is passed by name, and never to a fork's pull request"
+comments = true
+
+[[ban]]
+pattern = "openworks_pack"
+paths = ["crates/**"]
+reason = "the suite passes with no pack installed: no crate depends on a pack"
+comments = true
+
+[[ban]]
+pattern = "money"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "price"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "cost"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "amount"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "currency"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "wage"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "salary"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "payroll"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "invoice"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "budget"
+paths = ["migrations/**", "crates/*/src/**", "packs/*/src/**", "web/src/**"]
+reason = "no money: openworks holds no price, cost, pay or purchase; that is the books' job"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "plumb"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "electrician"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "hvac"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "roofing"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "carpent"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "masonry"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "welding"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "drywall"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "glazier"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[ban]]
+pattern = "landscap"
+paths = ["crates/openworks-core/**", "crates/openworks-db/**", "migrations/**"]
+reason = "the core names no trade: a trade is a pack's words, never the core's"
+comments = true
+ignore_case = true
+
+[[size]]
+paths = ["crates/*/src/**/*.rs", "packs/*/src/**/*.rs"]
+max_file_lines = 600
+max_fn_lines = 60
+
+[[size]]
+paths = ["web/src/**/*.ts"]
+max_file_lines = 400
+max_fn_lines = 60
+
+[[size]]
+paths = [".drover/arch.toml"]
+max_file_lines = 400
+
+[[size]]
+paths = ["Cargo.toml"]
+max_file_lines = 80
+
+[[size]]
+paths = [".drover/rules.md"]
+max_file_lines = 30
+
+[[size]]
+paths = ["README.md"]
+max_file_lines = 80

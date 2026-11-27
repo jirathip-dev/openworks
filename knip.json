@@ -1,0 +1,8 @@
+{
+  "workspaces": {
+    "web": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

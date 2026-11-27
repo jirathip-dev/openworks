@@ -1,0 +1,4 @@
+growth = 10
+
+[npm]
+typescript = "the type checker behind tsc --noEmit on web/"

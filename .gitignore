@@ -1,0 +1,6 @@
+target*/
+node_modules/
+.brief.md
+.mcp.lane.json
+CLAUDE.local.md
+.claude/
