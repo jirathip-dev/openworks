@@ -10,8 +10,8 @@ publish = false
 workspace = true
 
 [dependencies]
-openworks-core = { path = "../../crates/openworks-core", version = "0.1.0" }
+openworks-core = { path = "../../crates/openworks-core" }
 
 [dev-dependencies]
-openworks = { path = "../../crates/openworks", version = "0.1.0" }
-openworks-db = { path = "../../crates/openworks-db", version = "0.1.0" }
+openworks = { path = "../../crates/openworks" }
+openworks-db = { path = "../../crates/openworks-db" }
