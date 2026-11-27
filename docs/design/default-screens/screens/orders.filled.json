@@ -1,0 +1,334 @@
+{
+  "type": "screen",
+  "id": "orders",
+  "title": "Job orders",
+  "actions": [
+    {
+      "action": "new-order",
+      "label": "New order"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰",
+              "current": true
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 4,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "which",
+      "name": "which",
+      "action": "which",
+      "options": [
+        {
+          "value": "open",
+          "label": "Open"
+        },
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "done",
+          "label": "Done"
+        },
+        {
+          "value": "all",
+          "label": "All"
+        }
+      ],
+      "selected": [
+        "open"
+      ]
+    },
+    {
+      "type": "table",
+      "id": "orders",
+      "title": "Job orders",
+      "columns": [
+        {
+          "id": "no",
+          "label": "Order",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "job",
+          "label": "Job",
+          "kind": "text",
+          "phone": "title",
+          "width": 20
+        },
+        {
+          "id": "site",
+          "label": "Site",
+          "kind": "text",
+          "phone": "hide"
+        },
+        {
+          "id": "to",
+          "label": "Issued to",
+          "kind": "text",
+          "phone": "value"
+        },
+        {
+          "id": "due",
+          "label": "Due",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        }
+      ],
+      "rows": [
+        {
+          "id": "JO-211",
+          "cells": {
+            "no": "JO-211",
+            "job": "Install, Bay 4",
+            "site": "Bay 4",
+            "to": "Crew A",
+            "due": "2026-12-04",
+            "status": {
+              "text": "accepted",
+              "tone": "working"
+            }
+          },
+          "tap": {
+            "open": "/orders/JO-211"
+          }
+        },
+        {
+          "id": "JO-212",
+          "cells": {
+            "no": "JO-212",
+            "job": "Strip-out, Block A",
+            "site": "Block A",
+            "to": "Crew B",
+            "due": "2026-12-01",
+            "status": {
+              "text": "accepted",
+              "tone": "working"
+            }
+          },
+          "tap": {
+            "open": "/orders/JO-212"
+          }
+        },
+        {
+          "id": "JO-214",
+          "cells": {
+            "no": "JO-214",
+            "job": "Make good, Level 2",
+            "site": "Main hall",
+            "to": "Crew C",
+            "due": "2026-12-11",
+            "status": {
+              "text": "to approve",
+              "tone": "needs"
+            }
+          },
+          "tap": {
+            "open": "/orders/JO-214"
+          }
+        },
+        {
+          "id": "JO-215",
+          "cells": {
+            "no": "JO-215",
+            "job": "Install, Bay 6",
+            "site": "Bay 6",
+            "to": "Crew A",
+            "due": "2026-12-10",
+            "status": {
+              "text": "issued",
+              "tone": "info"
+            }
+          },
+          "tap": {
+            "open": "/orders/JO-215"
+          }
+        },
+        {
+          "id": "JO-216",
+          "cells": {
+            "no": "JO-216",
+            "job": "Gatehouse repair",
+            "site": "Gatehouse",
+            "to": "no crew",
+            "due": "2026-12-08",
+            "status": {
+              "text": "draft",
+              "tone": "mute"
+            }
+          },
+          "tap": {
+            "open": "/orders/JO-216"
+          }
+        }
+      ],
+      "sort": {
+        "by": "due",
+        "dir": "asc"
+      },
+      "filter": true
+    },
+    {
+      "type": "section",
+      "id": "order",
+      "header": "JO-211 · Install, Bay 4",
+      "blocks": [
+        {
+          "type": "steps",
+          "id": "order-steps",
+          "current": "accepted",
+          "steps": [
+            {
+              "id": "draft",
+              "label": "Draft"
+            },
+            {
+              "id": "issued",
+              "label": "Issued",
+              "sub": "27 Nov"
+            },
+            {
+              "id": "accepted",
+              "label": "Accepted",
+              "sub": "Ana Silva"
+            },
+            {
+              "id": "done",
+              "label": "Done"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "scope",
+          "markdown": "**Scope.** Fix the frames along the north wall of Bay 4 and leave the bay clear for the next crew."
+        },
+        {
+          "type": "list",
+          "id": "order-facts",
+          "rows": [
+            {
+              "type": "row",
+              "id": "o1",
+              "title": "Crew",
+              "value": "Crew A"
+            },
+            {
+              "type": "row",
+              "id": "o2",
+              "title": "Days",
+              "value": "30 Nov to 4 Dec"
+            },
+            {
+              "type": "row",
+              "id": "o3",
+              "title": "Equipment",
+              "value": "Lift L-2, Van V-1"
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "id": "pack-order",
+          "header": "Example pack",
+          "blocks": [
+            {
+              "type": "list",
+              "id": "pack-order-rows",
+              "rows": [
+                {
+                  "type": "row",
+                  "id": "po1",
+                  "title": "Checks to do",
+                  "value": "Lift check, Access log"
+                }
+              ]
+            }
+          ],
+          "footer": "A pack slot: filled by an installed pack, absent with none."
+        },
+        {
+          "type": "button",
+          "id": "print",
+          "label": "Print",
+          "action": "print"
+        },
+        {
+          "type": "button",
+          "id": "done",
+          "label": "Mark done",
+          "action": "mark-done",
+          "style": "primary"
+        }
+      ],
+      "side": true
+    }
+  ]
+}

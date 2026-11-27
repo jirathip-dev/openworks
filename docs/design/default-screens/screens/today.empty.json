@@ -1,0 +1,155 @@
+{
+  "type": "screen",
+  "id": "today",
+  "title": "Today",
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀",
+              "current": true
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": "figures",
+      "items": [
+        {
+          "label": "jobs today",
+          "value": 0
+        },
+        {
+          "label": "crews out",
+          "value": 0
+        },
+        {
+          "label": "reports due",
+          "value": 0
+        },
+        {
+          "label": "waiting on you",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "mine",
+      "header": "My jobs today",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "mine-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "mine-none",
+          "markdown": "No job is planned for you today."
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "due",
+      "header": "Reports due",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "due-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "due-none",
+          "markdown": "No daily report is due."
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "waiting",
+      "header": "Waiting on you",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "waiting-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "waiting-none",
+          "markdown": "Nothing waits for your approval."
+        }
+      ],
+      "side": true
+    },
+    {
+      "type": "card",
+      "id": "start",
+      "title": "Set up your organisation",
+      "subtitle": "Add sites, people and crews, then plan the first job.",
+      "buttons": [
+        {
+          "type": "button",
+          "id": "open-setup",
+          "label": "Open setup",
+          "action": "open-setup",
+          "style": "primary"
+        }
+      ]
+    }
+  ]
+}

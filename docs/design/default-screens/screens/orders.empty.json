@@ -1,0 +1,158 @@
+{
+  "type": "screen",
+  "id": "orders",
+  "title": "Job orders",
+  "actions": [
+    {
+      "action": "new-order",
+      "label": "New order"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰",
+              "current": true
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "which",
+      "name": "which",
+      "action": "which",
+      "options": [
+        {
+          "value": "open",
+          "label": "Open"
+        },
+        {
+          "value": "draft",
+          "label": "Draft"
+        },
+        {
+          "value": "done",
+          "label": "Done"
+        },
+        {
+          "value": "all",
+          "label": "All"
+        }
+      ],
+      "selected": [
+        "open"
+      ]
+    },
+    {
+      "type": "table",
+      "id": "orders",
+      "title": "Job orders",
+      "columns": [
+        {
+          "id": "no",
+          "label": "Order",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "job",
+          "label": "Job",
+          "kind": "text",
+          "phone": "title",
+          "width": 20
+        },
+        {
+          "id": "site",
+          "label": "Site",
+          "kind": "text",
+          "phone": "hide"
+        },
+        {
+          "id": "to",
+          "label": "Issued to",
+          "kind": "text",
+          "phone": "value"
+        },
+        {
+          "id": "due",
+          "label": "Due",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        }
+      ],
+      "rows": [],
+      "empty": "No job orders yet. An order tells a crew what to do on a job, and prints for the site."
+    },
+    {
+      "type": "section",
+      "id": "order",
+      "header": "Order",
+      "blocks": [
+        {
+          "type": "text",
+          "id": "order-none",
+          "markdown": "Pick an order to see it."
+        }
+      ],
+      "side": true
+    }
+  ]
+}

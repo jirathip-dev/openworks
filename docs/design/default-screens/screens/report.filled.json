@@ -1,0 +1,320 @@
+{
+  "type": "screen",
+  "id": "report",
+  "title": "Daily report",
+  "actions": [
+    {
+      "action": "save-draft",
+      "label": "Save draft"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎",
+              "current": true
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 4,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "id": "report-head",
+      "action": "report-head",
+      "fields": [
+        {
+          "type": "picker",
+          "name": "job",
+          "label": "Job",
+          "options": [
+            "Install, Bay 4",
+            "Strip-out, Block A",
+            "Inspection, Library"
+          ],
+          "value": "Install, Bay 4"
+        },
+        {
+          "type": "text",
+          "name": "day",
+          "label": "Day",
+          "value": "Tue 1 Dec 2026"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "conditions",
+      "name": "conditions",
+      "action": "conditions",
+      "options": [
+        {
+          "value": "clear",
+          "label": "Clear"
+        },
+        {
+          "value": "rain",
+          "label": "Rain"
+        },
+        {
+          "value": "wind",
+          "label": "Wind"
+        },
+        {
+          "value": "heat",
+          "label": "Heat"
+        }
+      ],
+      "selected": [
+        "rain"
+      ]
+    },
+    {
+      "type": "lines",
+      "id": "people",
+      "name": "people",
+      "label": "Who was on site",
+      "add": "Add person",
+      "columns": [
+        {
+          "type": "picker",
+          "name": "person",
+          "label": "Person",
+          "options": [
+            "Ana Silva",
+            "Ben Okafor",
+            "Lena Kovac",
+            "Sam Ito"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "hours",
+          "label": "Hours",
+          "keyboard": "number"
+        }
+      ],
+      "items": [
+        {
+          "id": "p1",
+          "values": {
+            "person": "Ana Silva",
+            "hours": "8"
+          }
+        },
+        {
+          "id": "p2",
+          "values": {
+            "person": "Ben Okafor",
+            "hours": "8"
+          }
+        },
+        {
+          "id": "p3",
+          "values": {
+            "person": "Lena Kovac",
+            "hours": "6.5"
+          }
+        }
+      ],
+      "sum": [
+        "hours"
+      ],
+      "empty": "No one added yet."
+    },
+    {
+      "type": "form",
+      "id": "report-photos",
+      "action": "add-photos",
+      "fields": [
+        {
+          "type": "upload",
+          "name": "photos",
+          "label": "Photos",
+          "many": true,
+          "capture": true,
+          "accept": [
+            "image"
+          ],
+          "files": [
+            {
+              "id": "f1",
+              "name": "north-wall.jpg",
+              "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22320%22%20height%3D%22240%22%3E%3Crect%20width%3D%22320%22%20height%3D%22240%22%20fill%3D%22%238a8f96%22%2F%3E%3Cpath%20d%3D%22M0%20190%20L90%20120%20L150%20170%20L220%20100%20L320%20180%20L320%20240%20L0%20240Z%22%20fill%3D%22%236c7179%22%2F%3E%3Ctext%20x%3D%2216%22%20y%3D%2234%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%23ffffff%22%3ENorth%20wall%3C%2Ftext%3E%3C%2Fsvg%3E"
+            },
+            {
+              "id": "f2",
+              "name": "frames.jpg",
+              "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22320%22%20height%3D%22240%22%3E%3Crect%20width%3D%22320%22%20height%3D%22240%22%20fill%3D%22%238a8f96%22%2F%3E%3Cpath%20d%3D%22M0%20190%20L90%20120%20L150%20170%20L220%20100%20L320%20180%20L320%20240%20L0%20240Z%22%20fill%3D%22%236c7179%22%2F%3E%3Ctext%20x%3D%2216%22%20y%3D%2234%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%23ffffff%22%3EFrames%3C%2Ftext%3E%3C%2Fsvg%3E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "id": "report-body",
+      "action": "send-report",
+      "fields": [
+        {
+          "type": "text",
+          "name": "done",
+          "label": "Work done",
+          "value": "Fixed the last two frames on the north wall.",
+          "placeholder": "What the crew did"
+        },
+        {
+          "type": "text",
+          "name": "issues",
+          "label": "Delays or issues",
+          "value": "Rain stopped work 10:00 to 11:30.",
+          "placeholder": "What held the work up"
+        },
+        {
+          "type": "toggle",
+          "name": "safe",
+          "label": "Site left safe",
+          "value": true
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "id": "send",
+      "label": "Send for approval",
+      "action": "send-report",
+      "style": "primary"
+    },
+    {
+      "type": "section",
+      "id": "pack-report",
+      "header": "Example pack",
+      "blocks": [
+        {
+          "type": "form",
+          "id": "pack-report-form",
+          "action": "pack-fields",
+          "fields": [
+            {
+              "type": "picker",
+              "name": "check",
+              "label": "End-of-day check",
+              "options": [
+                "Passed",
+                "Failed",
+                "Not done"
+              ],
+              "value": "Passed"
+            },
+            {
+              "type": "text",
+              "name": "reading",
+              "label": "Reading",
+              "keyboard": "number",
+              "value": "42"
+            }
+          ]
+        }
+      ],
+      "footer": "A pack slot: filled by an installed pack, absent with none."
+    },
+    {
+      "type": "section",
+      "id": "earlier",
+      "header": "Earlier reports",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "earlier-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "r881",
+              "title": "Mon 30 Nov",
+              "subtitle": "Install, Bay 4",
+              "badge": {
+                "text": "approved",
+                "tone": "ok"
+              }
+            },
+            {
+              "type": "row",
+              "id": "r874",
+              "title": "Fri 27 Nov",
+              "subtitle": "Install, Bay 4",
+              "badge": {
+                "text": "returned",
+                "tone": "warn"
+              }
+            },
+            {
+              "type": "row",
+              "id": "r866",
+              "title": "Thu 26 Nov",
+              "subtitle": "Prep, Bay 4",
+              "badge": {
+                "text": "approved",
+                "tone": "ok"
+              }
+            }
+          ]
+        }
+      ],
+      "side": true
+    }
+  ]
+}

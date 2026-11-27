@@ -1,0 +1,140 @@
+{
+  "type": "screen",
+  "id": "planner",
+  "title": "Planner",
+  "actions": [
+    {
+      "action": "new-job",
+      "label": "New job"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤",
+              "current": true
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "view",
+      "name": "view",
+      "action": "view",
+      "options": [
+        {
+          "value": "timeline",
+          "label": "Timeline"
+        },
+        {
+          "value": "month",
+          "label": "Month"
+        },
+        {
+          "value": "table",
+          "label": "Table"
+        }
+      ],
+      "selected": [
+        "timeline"
+      ]
+    },
+    {
+      "type": "stat",
+      "id": "figures",
+      "items": [
+        {
+          "label": "jobs",
+          "value": 0
+        },
+        {
+          "label": "unassigned",
+          "value": 0
+        },
+        {
+          "label": "crews booked",
+          "value": "0 of 0"
+        }
+      ]
+    },
+    {
+      "type": "timeline",
+      "id": "plan",
+      "title": "30 Nov to 13 Dec",
+      "from": "2026-11-30",
+      "to": "2026-12-13",
+      "off": [
+        "2026-12-05",
+        "2026-12-06",
+        "2026-12-12",
+        "2026-12-13"
+      ],
+      "tracks": [],
+      "empty": "No crews yet, so nothing to plan. Add a crew, then drag across its row to plan a job.",
+      "move": {
+        "action": "schedule",
+        "name": "bar"
+      },
+      "stretch": {
+        "action": "schedule",
+        "name": "bar"
+      },
+      "draw": {
+        "action": "schedule",
+        "name": "bar"
+      }
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "type": "screen",
+  "id": "crew",
+  "title": "Crew and equipment",
+  "actions": [
+    {
+      "action": "import",
+      "label": "Import"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉",
+              "current": true
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "crews",
+      "header": "Crews",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "crew-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "crews-none",
+          "markdown": "No crews yet. A crew is the people who go out together."
+        },
+        {
+          "type": "button",
+          "id": "new-crew",
+          "label": "New crew",
+          "action": "new-crew",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": "equipment",
+      "title": "Equipment",
+      "columns": [
+        {
+          "id": "item",
+          "label": "Item",
+          "kind": "text",
+          "phone": "title"
+        },
+        {
+          "id": "kind",
+          "label": "Kind",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "where",
+          "label": "Where",
+          "kind": "text",
+          "phone": "value"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        },
+        {
+          "id": "next",
+          "label": "Next booked",
+          "kind": "date",
+          "phone": "hide"
+        }
+      ],
+      "rows": [],
+      "empty": "No equipment yet. Add what you book onto jobs."
+    },
+    {
+      "type": "section",
+      "id": "people",
+      "header": "People",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "people-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "people-none",
+          "markdown": "No one is invited yet."
+        },
+        {
+          "type": "button",
+          "id": "invite",
+          "label": "Invite people",
+          "action": "invite"
+        }
+      ],
+      "side": true
+    }
+  ]
+}

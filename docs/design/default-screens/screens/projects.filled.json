@@ -1,0 +1,352 @@
+{
+  "type": "screen",
+  "id": "projects",
+  "title": "Projects and sites",
+  "actions": [
+    {
+      "action": "new-project",
+      "label": "New project"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆",
+              "current": true
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 4,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "which",
+      "name": "which",
+      "action": "which",
+      "options": [
+        {
+          "value": "active",
+          "label": "Active"
+        },
+        {
+          "value": "planned",
+          "label": "Planned"
+        },
+        {
+          "value": "done",
+          "label": "Done"
+        },
+        {
+          "value": "all",
+          "label": "All"
+        }
+      ],
+      "selected": [
+        "active"
+      ]
+    },
+    {
+      "type": "table",
+      "id": "projects",
+      "title": "Projects",
+      "columns": [
+        {
+          "id": "name",
+          "label": "Project",
+          "kind": "text",
+          "phone": "title",
+          "width": 22
+        },
+        {
+          "id": "client",
+          "label": "Client",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "sites",
+          "label": "Sites",
+          "kind": "number",
+          "digits": 0,
+          "phone": "hide"
+        },
+        {
+          "id": "open",
+          "label": "Open jobs",
+          "kind": "number",
+          "digits": 0,
+          "phone": "value"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        },
+        {
+          "id": "start",
+          "label": "Start",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "end",
+          "label": "End",
+          "kind": "date",
+          "phone": "hide"
+        }
+      ],
+      "rows": [
+        {
+          "id": "p1",
+          "cells": {
+            "name": "Harbour depot refit",
+            "client": "Port Authority",
+            "sites": 3,
+            "open": 7,
+            "status": {
+              "text": "on track",
+              "tone": "ok"
+            },
+            "start": "2026-10-05",
+            "end": "2027-02-26"
+          },
+          "tap": {
+            "open": "/projects/p1"
+          }
+        },
+        {
+          "id": "p2",
+          "cells": {
+            "name": "Elm Street housing",
+            "client": "Elm Street Trust",
+            "sites": 2,
+            "open": 5,
+            "status": {
+              "text": "behind",
+              "tone": "warn"
+            },
+            "start": "2026-09-14",
+            "end": "2027-04-30"
+          },
+          "tap": {
+            "open": "/projects/p2"
+          }
+        },
+        {
+          "id": "p3",
+          "cells": {
+            "name": "Civic library upgrade",
+            "client": "Town council",
+            "sites": 1,
+            "open": 3,
+            "status": {
+              "text": "on track",
+              "tone": "ok"
+            },
+            "start": "2026-11-02",
+            "end": "2027-01-29"
+          },
+          "tap": {
+            "open": "/projects/p3"
+          }
+        },
+        {
+          "id": "p4",
+          "cells": {
+            "name": "Riverside clinic",
+            "client": "Riverside Health",
+            "sites": 1,
+            "open": 2,
+            "status": {
+              "text": "handover",
+              "tone": "info"
+            },
+            "start": "2026-06-01",
+            "end": "2026-12-18"
+          },
+          "tap": {
+            "open": "/projects/p4"
+          }
+        },
+        {
+          "id": "p5",
+          "cells": {
+            "name": "Station car park",
+            "client": "Transit board",
+            "sites": 2,
+            "open": 0,
+            "status": {
+              "text": "planned",
+              "tone": "mute"
+            },
+            "start": "2027-01-11",
+            "end": "2027-03-19"
+          },
+          "tap": {
+            "open": "/projects/p5"
+          }
+        }
+      ],
+      "sort": {
+        "by": "start",
+        "dir": "asc"
+      },
+      "filter": true,
+      "export": [
+        "csv"
+      ]
+    },
+    {
+      "type": "section",
+      "id": "sites",
+      "header": "Harbour depot refit",
+      "blocks": [
+        {
+          "type": "stat",
+          "id": "p1-figures",
+          "items": [
+            {
+              "label": "sites",
+              "value": 3
+            },
+            {
+              "label": "open jobs",
+              "value": 7
+            },
+            {
+              "label": "done",
+              "value": "64%"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "id": "site-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "s1",
+              "title": "Bay 4",
+              "subtitle": "2 Harbour Road",
+              "value": "3 jobs",
+              "tap": {
+                "open": "/sites/s1"
+              },
+              "accessory": "chevron"
+            },
+            {
+              "type": "row",
+              "id": "s2",
+              "title": "Bay 6",
+              "subtitle": "2 Harbour Road",
+              "value": "2 jobs",
+              "tap": {
+                "open": "/sites/s2"
+              },
+              "accessory": "chevron"
+            },
+            {
+              "type": "row",
+              "id": "s3",
+              "title": "Gatehouse",
+              "subtitle": "1 Harbour Road",
+              "value": "2 jobs",
+              "tap": {
+                "open": "/sites/s3"
+              },
+              "accessory": "chevron"
+            }
+          ]
+        },
+        {
+          "type": "button",
+          "id": "new-site",
+          "label": "New site",
+          "action": "new-site"
+        },
+        {
+          "type": "section",
+          "id": "pack-site",
+          "header": "Example pack",
+          "blocks": [
+            {
+              "type": "list",
+              "id": "pack-site-rows",
+              "rows": [
+                {
+                  "type": "row",
+                  "id": "ps1",
+                  "title": "Access hours",
+                  "value": "07:00 to 17:00"
+                },
+                {
+                  "type": "row",
+                  "id": "ps2",
+                  "title": "Induction needed",
+                  "value": "yes"
+                }
+              ]
+            }
+          ],
+          "footer": "A pack slot: filled by an installed pack, absent with none."
+        }
+      ],
+      "side": true
+    }
+  ]
+}

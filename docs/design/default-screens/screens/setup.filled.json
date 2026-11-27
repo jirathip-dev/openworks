@@ -1,0 +1,277 @@
+{
+  "type": "screen",
+  "id": "setup",
+  "title": "Setup",
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 4,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙",
+          "current": true
+        }
+      ]
+    },
+    {
+      "type": "steps",
+      "id": "setup-steps",
+      "title": "Set up",
+      "current": "packs",
+      "steps": [
+        {
+          "id": "org",
+          "label": "Organisation"
+        },
+        {
+          "id": "sites",
+          "label": "Sites"
+        },
+        {
+          "id": "people",
+          "label": "People"
+        },
+        {
+          "id": "crews",
+          "label": "Crews"
+        },
+        {
+          "id": "packs",
+          "label": "Packs"
+        }
+      ]
+    },
+    {
+      "type": "config",
+      "id": "org",
+      "action": "save-org",
+      "fields": [
+        {
+          "type": "text",
+          "name": "name",
+          "label": "Organisation name",
+          "value": "Northgate Works",
+          "placeholder": "Your organisation"
+        },
+        {
+          "type": "picker",
+          "name": "zone",
+          "label": "Time zone",
+          "options": [
+            "UTC-05:00",
+            "UTC+00:00",
+            "UTC+01:00",
+            "UTC+07:00"
+          ],
+          "value": "UTC+07:00"
+        },
+        {
+          "type": "picker",
+          "name": "week",
+          "label": "Week starts",
+          "options": [
+            "Monday",
+            "Sunday",
+            "Saturday"
+          ],
+          "value": "Monday"
+        },
+        {
+          "type": "text",
+          "name": "day",
+          "label": "Working day",
+          "value": "07:00 to 17:00",
+          "placeholder": "07:00 to 17:00"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "workdays",
+      "name": "workdays",
+      "action": "workdays",
+      "multi": true,
+      "options": [
+        {
+          "value": "mon",
+          "label": "Mon"
+        },
+        {
+          "value": "tue",
+          "label": "Tue"
+        },
+        {
+          "value": "wed",
+          "label": "Wed"
+        },
+        {
+          "value": "thu",
+          "label": "Thu"
+        },
+        {
+          "value": "fri",
+          "label": "Fri"
+        },
+        {
+          "value": "sat",
+          "label": "Sat"
+        },
+        {
+          "value": "sun",
+          "label": "Sun"
+        }
+      ],
+      "selected": [
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri"
+      ]
+    },
+    {
+      "type": "button",
+      "id": "save-org",
+      "label": "Save",
+      "action": "save-org",
+      "style": "primary"
+    },
+    {
+      "type": "section",
+      "id": "roles",
+      "header": "Roles",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "role-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "ro1",
+              "title": "Admin",
+              "subtitle": "Everything, setup included",
+              "value": "2"
+            },
+            {
+              "type": "row",
+              "id": "ro2",
+              "title": "Planner",
+              "subtitle": "Plans jobs, issues orders, approves",
+              "value": "3"
+            },
+            {
+              "type": "row",
+              "id": "ro3",
+              "title": "Lead",
+              "subtitle": "Runs a crew, writes reports",
+              "value": "4"
+            },
+            {
+              "type": "row",
+              "id": "ro4",
+              "title": "Member",
+              "subtitle": "Sees own jobs, writes reports",
+              "value": "9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "packs",
+      "header": "Packs",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "pack-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "pk",
+              "title": "Example pack",
+              "subtitle": "Adds checks to Today, fields to jobs, sites and reports",
+              "value": "0.1.0",
+              "badge": {
+                "text": "on",
+                "tone": "ok"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "import",
+      "header": "Import",
+      "blocks": [
+        {
+          "type": "text",
+          "id": "import-note",
+          "markdown": "Last import: 18 people, 5 pieces of equipment, 24 Nov."
+        },
+        {
+          "type": "button",
+          "id": "import",
+          "label": "Import a spreadsheet",
+          "action": "import"
+        }
+      ],
+      "side": true
+    }
+  ]
+}

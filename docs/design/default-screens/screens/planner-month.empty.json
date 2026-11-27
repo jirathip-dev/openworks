@@ -1,0 +1,129 @@
+{
+  "type": "screen",
+  "id": "planner-month",
+  "title": "Planner",
+  "actions": [
+    {
+      "action": "new-job",
+      "label": "New job"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤",
+              "current": true
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "view",
+      "name": "view",
+      "action": "view",
+      "options": [
+        {
+          "value": "timeline",
+          "label": "Timeline"
+        },
+        {
+          "value": "month",
+          "label": "Month"
+        },
+        {
+          "value": "table",
+          "label": "Table"
+        }
+      ],
+      "selected": [
+        "month"
+      ]
+    },
+    {
+      "type": "heat",
+      "id": "month",
+      "title": "December 2026: jobs a day",
+      "columns": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "grid": [],
+      "empty": "No jobs this month."
+    },
+    {
+      "type": "section",
+      "id": "day",
+      "header": "This month",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "day-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "day-none",
+          "markdown": "Pick a day to see its jobs."
+        }
+      ],
+      "side": true
+    }
+  ]
+}

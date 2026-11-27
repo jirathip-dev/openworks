@@ -1,0 +1,296 @@
+{
+  "type": "screen",
+  "id": "planner-month",
+  "title": "Planner",
+  "actions": [
+    {
+      "action": "new-job",
+      "label": "New job"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤",
+              "current": true
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 4,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "view",
+      "name": "view",
+      "action": "view",
+      "options": [
+        {
+          "value": "timeline",
+          "label": "Timeline"
+        },
+        {
+          "value": "month",
+          "label": "Month"
+        },
+        {
+          "value": "table",
+          "label": "Table"
+        }
+      ],
+      "selected": [
+        "month"
+      ]
+    },
+    {
+      "type": "heat",
+      "id": "month",
+      "title": "December 2026: jobs a day",
+      "columns": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
+      "grid": [
+        {
+          "name": "30 Nov",
+          "cells": [
+            {
+              "label": "·"
+            },
+            {
+              "value": 3
+            },
+            {
+              "value": 4
+            },
+            {
+              "value": 4
+            },
+            {
+              "value": 2
+            },
+            {
+              "label": "·"
+            },
+            {
+              "label": "·"
+            }
+          ]
+        },
+        {
+          "name": "7 Dec",
+          "cells": [
+            {
+              "value": 5
+            },
+            {
+              "value": 6
+            },
+            {
+              "value": 3
+            },
+            {
+              "value": 4
+            },
+            {
+              "value": 4
+            },
+            {
+              "label": "·"
+            },
+            {
+              "label": "·"
+            }
+          ]
+        },
+        {
+          "name": "14 Dec",
+          "cells": [
+            {
+              "value": 2
+            },
+            {
+              "value": 3
+            },
+            {
+              "value": 5
+            },
+            {
+              "value": 6
+            },
+            {
+              "value": 3
+            },
+            {
+              "value": 1
+            },
+            {
+              "label": "·"
+            }
+          ]
+        },
+        {
+          "name": "21 Dec",
+          "cells": [
+            {
+              "value": 4
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 1
+            },
+            {
+              "label": "·"
+            },
+            {
+              "label": "·"
+            },
+            {
+              "label": "·"
+            },
+            {
+              "label": "·"
+            }
+          ]
+        },
+        {
+          "name": "28 Dec",
+          "cells": [
+            {
+              "label": "·"
+            },
+            {
+              "label": "·"
+            },
+            {
+              "value": 2
+            },
+            {
+              "value": 3
+            },
+            {
+              "value": 1
+            },
+            {
+              "label": "·"
+            },
+            {
+              "label": "·"
+            }
+          ]
+        }
+      ],
+      "selected": {
+        "row": "7 Dec",
+        "column": "Wed"
+      },
+      "tap": {
+        "action": "pick-day"
+      }
+    },
+    {
+      "type": "section",
+      "id": "day",
+      "header": "Wed 9 Dec",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "day-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "m1",
+              "title": "Install, Bay 6",
+              "subtitle": "Crew A",
+              "value": "4 days",
+              "tap": {
+                "open": "/jobs/1044"
+              }
+            },
+            {
+              "type": "row",
+              "id": "m2",
+              "title": "Prep, Block B",
+              "subtitle": "Crew B",
+              "value": "4 days",
+              "tap": {
+                "open": "/jobs/1049"
+              }
+            },
+            {
+              "type": "row",
+              "id": "m3",
+              "title": "Make good, Level 2",
+              "subtitle": "Crew C",
+              "value": "3 days",
+              "tap": {
+                "open": "/jobs/1052"
+              }
+            }
+          ]
+        }
+      ],
+      "side": true
+    }
+  ]
+}

@@ -1,0 +1,271 @@
+{
+  "type": "screen",
+  "id": "approvals",
+  "title": "Approvals",
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "current": true,
+              "badge": {
+                "count": 4,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "which",
+      "name": "which",
+      "action": "which",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "reports",
+          "label": "Reports"
+        },
+        {
+          "value": "orders",
+          "label": "Orders"
+        },
+        {
+          "value": "hours",
+          "label": "Hours"
+        }
+      ],
+      "selected": [
+        "all"
+      ]
+    },
+    {
+      "type": "card",
+      "id": "r881",
+      "kind": "ask",
+      "title": "Daily report · Install, Bay 4",
+      "subtitle": "Ana Silva · Tue 1 Dec",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "r881-facts",
+          "rows": [
+            {
+              "type": "row",
+              "id": "r881-f0",
+              "title": "People",
+              "value": "3 · 22.5 h"
+            },
+            {
+              "type": "row",
+              "id": "r881-f1",
+              "title": "Work done",
+              "value": "Frames on the north wall"
+            },
+            {
+              "type": "row",
+              "id": "r881-f2",
+              "title": "Issues",
+              "value": "Rain 10:00 to 11:30"
+            },
+            {
+              "type": "row",
+              "id": "r881-f3",
+              "title": "Photos",
+              "value": "2"
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "type": "button",
+          "id": "r881-ok",
+          "label": "Approve",
+          "action": "approve",
+          "style": "primary"
+        },
+        {
+          "type": "button",
+          "id": "r881-back",
+          "label": "Return",
+          "action": "return"
+        }
+      ]
+    },
+    {
+      "type": "card",
+      "id": "o214",
+      "kind": "ask",
+      "title": "Job order JO-214 · Make good, Level 2",
+      "subtitle": "Priya Nair · for Crew C",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "o214-facts",
+          "rows": [
+            {
+              "type": "row",
+              "id": "o214-f0",
+              "title": "Days",
+              "value": "9 to 11 Dec"
+            },
+            {
+              "type": "row",
+              "id": "o214-f1",
+              "title": "Site",
+              "value": "Main hall"
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "type": "button",
+          "id": "o214-ok",
+          "label": "Approve",
+          "action": "approve",
+          "style": "primary"
+        },
+        {
+          "type": "button",
+          "id": "o214-back",
+          "label": "Return",
+          "action": "return"
+        }
+      ]
+    },
+    {
+      "type": "card",
+      "id": "t49c",
+      "kind": "ask",
+      "title": "Hours · week 49",
+      "subtitle": "Crew C · 4 people",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "t49c-facts",
+          "rows": [
+            {
+              "type": "row",
+              "id": "t49c-f0",
+              "title": "Recorded",
+              "value": "152 h"
+            },
+            {
+              "type": "row",
+              "id": "t49c-f1",
+              "title": "Over the plan",
+              "value": "6 h"
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "type": "button",
+          "id": "t49c-ok",
+          "label": "Approve",
+          "action": "approve",
+          "style": "primary"
+        },
+        {
+          "type": "button",
+          "id": "t49c-back",
+          "label": "Return",
+          "action": "return"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "decided",
+      "header": "Decided",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "decided-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "x1",
+              "title": "Daily report · Survey",
+              "subtitle": "approved by you",
+              "value": "Mon",
+              "badge": {
+                "text": "approved",
+                "tone": "ok"
+              }
+            },
+            {
+              "type": "row",
+              "id": "x2",
+              "title": "Daily report · Install, Bay 4",
+              "subtitle": "returned: no photos",
+              "value": "Fri",
+              "badge": {
+                "text": "returned",
+                "tone": "warn"
+              }
+            }
+          ]
+        }
+      ],
+      "side": true
+    }
+  ]
+}

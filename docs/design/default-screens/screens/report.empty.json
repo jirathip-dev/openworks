@@ -1,0 +1,222 @@
+{
+  "type": "screen",
+  "id": "report",
+  "title": "Daily report",
+  "actions": [
+    {
+      "action": "save-draft",
+      "label": "Save draft"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎",
+              "current": true
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "id": "report-head",
+      "action": "report-head",
+      "fields": [
+        {
+          "type": "picker",
+          "name": "job",
+          "label": "Job",
+          "options": [
+            "Pick a job"
+          ],
+          "value": "Pick a job"
+        },
+        {
+          "type": "text",
+          "name": "day",
+          "label": "Day",
+          "value": "Tue 1 Dec 2026"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "conditions",
+      "name": "conditions",
+      "action": "conditions",
+      "options": [
+        {
+          "value": "clear",
+          "label": "Clear"
+        },
+        {
+          "value": "rain",
+          "label": "Rain"
+        },
+        {
+          "value": "wind",
+          "label": "Wind"
+        },
+        {
+          "value": "heat",
+          "label": "Heat"
+        }
+      ],
+      "selected": [
+        ""
+      ]
+    },
+    {
+      "type": "lines",
+      "id": "people",
+      "name": "people",
+      "label": "Who was on site",
+      "add": "Add person",
+      "columns": [
+        {
+          "type": "picker",
+          "name": "person",
+          "label": "Person",
+          "options": [
+            "Ana Silva",
+            "Ben Okafor",
+            "Lena Kovac",
+            "Sam Ito"
+          ]
+        },
+        {
+          "type": "text",
+          "name": "hours",
+          "label": "Hours",
+          "keyboard": "number"
+        }
+      ],
+      "items": [],
+      "sum": [
+        "hours"
+      ],
+      "empty": "No one added yet."
+    },
+    {
+      "type": "form",
+      "id": "report-photos",
+      "action": "add-photos",
+      "fields": [
+        {
+          "type": "upload",
+          "name": "photos",
+          "label": "Photos",
+          "many": true,
+          "capture": true,
+          "accept": [
+            "image"
+          ],
+          "files": []
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "id": "report-body",
+      "action": "send-report",
+      "fields": [
+        {
+          "type": "text",
+          "name": "done",
+          "label": "Work done",
+          "value": "",
+          "placeholder": "What the crew did"
+        },
+        {
+          "type": "text",
+          "name": "issues",
+          "label": "Delays or issues",
+          "value": "",
+          "placeholder": "What held the work up"
+        },
+        {
+          "type": "toggle",
+          "name": "safe",
+          "label": "Site left safe",
+          "value": false
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "id": "send",
+      "label": "Send for approval",
+      "action": "send-report",
+      "style": "primary"
+    },
+    {
+      "type": "section",
+      "id": "earlier",
+      "header": "Earlier reports",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "earlier-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "earlier-none",
+          "markdown": "Reports you send appear here."
+        }
+      ],
+      "side": true
+    }
+  ]
+}

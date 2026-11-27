@@ -1,0 +1,314 @@
+{
+  "type": "screen",
+  "id": "planner-table",
+  "title": "Planner",
+  "actions": [
+    {
+      "action": "new-job",
+      "label": "New job"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤",
+              "current": true
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 4,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "view",
+      "name": "view",
+      "action": "view",
+      "options": [
+        {
+          "value": "timeline",
+          "label": "Timeline"
+        },
+        {
+          "value": "month",
+          "label": "Month"
+        },
+        {
+          "value": "table",
+          "label": "Table"
+        }
+      ],
+      "selected": [
+        "table"
+      ]
+    },
+    {
+      "type": "table",
+      "id": "jobs",
+      "title": "Jobs",
+      "columns": [
+        {
+          "id": "job",
+          "label": "Job",
+          "kind": "text",
+          "phone": "title",
+          "width": 20
+        },
+        {
+          "id": "project",
+          "label": "Project",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "site",
+          "label": "Site",
+          "kind": "text",
+          "phone": "hide"
+        },
+        {
+          "id": "crew",
+          "label": "Crew",
+          "kind": "text",
+          "phone": "value"
+        },
+        {
+          "id": "start",
+          "label": "Start",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "end",
+          "label": "End",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        },
+        {
+          "id": "done",
+          "label": "Done",
+          "kind": "bar",
+          "unit": "%",
+          "digits": 0,
+          "max": 100,
+          "phone": "hide"
+        }
+      ],
+      "rows": [
+        {
+          "id": "1042",
+          "cells": {
+            "job": "Install, Bay 4",
+            "project": "Harbour depot refit",
+            "site": "Bay 4",
+            "crew": "Crew A",
+            "start": "2026-11-30",
+            "end": "2026-12-04",
+            "status": {
+              "text": "on site",
+              "tone": "working"
+            },
+            "done": 60
+          },
+          "tap": {
+            "open": "/jobs/1042"
+          }
+        },
+        {
+          "id": "1044",
+          "cells": {
+            "job": "Install, Bay 6",
+            "project": "Harbour depot refit",
+            "site": "Bay 6",
+            "crew": "Crew A",
+            "start": "2026-12-07",
+            "end": "2026-12-10",
+            "status": {
+              "text": "planned",
+              "tone": "info"
+            },
+            "done": 0
+          },
+          "tap": {
+            "open": "/jobs/1044"
+          }
+        },
+        {
+          "id": "1046",
+          "cells": {
+            "job": "Strip-out, Block A",
+            "project": "Elm Street housing",
+            "site": "Block A",
+            "crew": "Crew B",
+            "start": "2026-11-30",
+            "end": "2026-12-01",
+            "status": {
+              "text": "behind",
+              "tone": "warn"
+            },
+            "done": 70
+          },
+          "tap": {
+            "open": "/jobs/1046"
+          }
+        },
+        {
+          "id": "1049",
+          "cells": {
+            "job": "Prep, Block B",
+            "project": "Elm Street housing",
+            "site": "Block B",
+            "crew": "Crew B",
+            "start": "2026-12-08",
+            "end": "2026-12-11",
+            "status": {
+              "text": "planned",
+              "tone": "info"
+            },
+            "done": 0
+          },
+          "tap": {
+            "open": "/jobs/1049"
+          }
+        },
+        {
+          "id": "1051",
+          "cells": {
+            "job": "Inspection, Library",
+            "project": "Civic library upgrade",
+            "site": "Main hall",
+            "crew": "Crew C",
+            "start": "2026-12-01",
+            "end": "2026-12-03",
+            "status": {
+              "text": "on site",
+              "tone": "working"
+            },
+            "done": 30
+          },
+          "tap": {
+            "open": "/jobs/1051"
+          }
+        },
+        {
+          "id": "1053",
+          "cells": {
+            "job": "Handover",
+            "project": "Riverside clinic",
+            "site": "Ward wing",
+            "crew": "Crew D",
+            "start": "2026-11-30",
+            "end": "2026-11-30",
+            "status": {
+              "text": "done",
+              "tone": "ok"
+            },
+            "done": 100
+          },
+          "tap": {
+            "open": "/jobs/1053"
+          }
+        },
+        {
+          "id": "1055",
+          "cells": {
+            "job": "Gatehouse repair",
+            "project": "Harbour depot refit",
+            "site": "Gatehouse",
+            "crew": "",
+            "start": "2026-12-07",
+            "end": "2026-12-08",
+            "status": {
+              "text": "no crew",
+              "tone": "bad"
+            },
+            "done": 0
+          },
+          "tap": {
+            "open": "/jobs/1055"
+          }
+        }
+      ],
+      "sort": {
+        "by": "start",
+        "dir": "asc"
+      },
+      "filter": true,
+      "select": {
+        "actions": [
+          {
+            "action": "assign",
+            "label": "assign crew"
+          },
+          {
+            "action": "shift",
+            "label": "move days"
+          }
+        ]
+      },
+      "export": [
+        "csv",
+        "xlsx"
+      ]
+    }
+  ]
+}

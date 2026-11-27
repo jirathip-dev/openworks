@@ -1,0 +1,157 @@
+{
+  "type": "screen",
+  "id": "planner-table",
+  "title": "Planner",
+  "actions": [
+    {
+      "action": "new-job",
+      "label": "New job"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤",
+              "current": true
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "view",
+      "name": "view",
+      "action": "view",
+      "options": [
+        {
+          "value": "timeline",
+          "label": "Timeline"
+        },
+        {
+          "value": "month",
+          "label": "Month"
+        },
+        {
+          "value": "table",
+          "label": "Table"
+        }
+      ],
+      "selected": [
+        "table"
+      ]
+    },
+    {
+      "type": "table",
+      "id": "jobs",
+      "title": "Jobs",
+      "columns": [
+        {
+          "id": "job",
+          "label": "Job",
+          "kind": "text",
+          "phone": "title",
+          "width": 20
+        },
+        {
+          "id": "project",
+          "label": "Project",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "site",
+          "label": "Site",
+          "kind": "text",
+          "phone": "hide"
+        },
+        {
+          "id": "crew",
+          "label": "Crew",
+          "kind": "text",
+          "phone": "value"
+        },
+        {
+          "id": "start",
+          "label": "Start",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "end",
+          "label": "End",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        },
+        {
+          "id": "done",
+          "label": "Done",
+          "kind": "bar",
+          "unit": "%",
+          "digits": 0,
+          "max": 100,
+          "phone": "hide"
+        }
+      ],
+      "rows": [],
+      "empty": "No jobs yet. Plan one on the timeline, or import them from a spreadsheet.",
+      "filter": true
+    }
+  ]
+}
