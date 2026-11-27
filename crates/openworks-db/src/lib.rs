@@ -2,16 +2,16 @@ use openworks_core::{Fail, Tx};
 
 /// Every migration, by name, in the order it runs.
 pub const MIGRATIONS: &[(&str, &str)] = &[
-    ("0001_orgs", include_str!("../../../migrations/0001_orgs.sql")),
+    ("0001_orgs", include_str!("../migrations/0001_orgs.sql")),
     (
         "0002_events_seq_and_keys",
-        include_str!("../../../migrations/0002_events_seq_and_keys.sql"),
+        include_str!("../migrations/0002_events_seq_and_keys.sql"),
     ),
     (
         "0003_attachments_and_series",
-        include_str!("../../../migrations/0003_attachments_and_series.sql"),
+        include_str!("../migrations/0003_attachments_and_series.sql"),
     ),
-    ("0004_members", include_str!("../../../migrations/0004_members.sql")),
+    ("0004_members", include_str!("../migrations/0004_members.sql")),
 ];
 
 /// Leaves the audit row of a write.

@@ -42,7 +42,10 @@ GitHub-hosted runners, with read-only permissions; a fork's pull request gets no
 
 The four crates and `openworks-web` share one version, the workspace's in `Cargo.toml`. Once `ci` is green on `main`,
 `.github/workflows/release.yml` tags `v<version>` and writes its changelog from the merged PRs' titles, unless that tag
-exists. Nothing is published to crates.io or npm: use openworks as a git dependency. The `local/surface` gate fails a
+exists, then publishes `openworks-core`, `openworks-db`, `openworks-server` and `openworks` to crates.io and
+`openworks-web` to npm from that tag, skipping a package whose version is there already. It needs the repo secrets
+`CARGO_REGISTRY_TOKEN` and `NPM_TOKEN` and fails naming the missing one before anything is published. The
+`local/publish` gate dry-runs both publishes on every pull request. The `local/surface` gate fails a
 change that drops or changes a public Rust item, a `web` declaration or a `contract` entry of the last release unless
 the version makes it a breaking release.
 

@@ -15,21 +15,60 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
+      - name: check the publish secrets
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$CARGO_REGISTRY_TOKEN" ] || missing="$missing CARGO_REGISTRY_TOKEN"
+          [ -n "$NPM_TOKEN" ] || missing="$missing NPM_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::repo secret missing:$missing; set it and re-run the release, nothing was published"
+            exit 1
+          fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
-      - env:
+      - name: tag the release
+        env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           tag="v$(python3 .gatekeeper/surface.py version)"
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             echo "$tag is released already"
+          else
+            gh release create "$tag" --target "$SHA" --title "$tag" --generate-notes
+          fi
+          git fetch --tags
+          git checkout "$tag"
+      - name: publish the crates to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          version="$(python3 .gatekeeper/surface.py version)"
+          for crate in openworks-core openworks-db openworks-server openworks; do
+            if curl -sSf -A "openworks-release (https://github.com/jirathip-dev/openworks)" \
+              "https://crates.io/api/v1/crates/$crate/$version" >/dev/null 2>&1; then
+              echo "$crate $version is on crates.io already: skipped"
+              continue
+            fi
+            cargo publish --locked -p "$crate"
+          done
+      - name: publish openworks-web to npm
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version="$(python3 .gatekeeper/surface.py version)"
+          if [ -n "$(npm view "openworks-web@$version" version 2>/dev/null)" ]; then
+            echo "openworks-web $version is on npm already: skipped"
             exit 0
           fi
-          gh release create "$tag" --target "$SHA" --title "$tag" --generate-notes
+          npm config set "//registry.npmjs.org/:_authToken" "$NPM_TOKEN"
+          npm publish -w web --access public
