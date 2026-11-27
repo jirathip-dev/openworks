@@ -1,0 +1,112 @@
+{
+  "type": "screen",
+  "id": "approvals",
+  "title": "Approvals",
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "current": true
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "which",
+      "name": "which",
+      "action": "which",
+      "options": [
+        {
+          "value": "all",
+          "label": "All"
+        },
+        {
+          "value": "reports",
+          "label": "Reports"
+        },
+        {
+          "value": "orders",
+          "label": "Orders"
+        }
+      ],
+      "selected": [
+        "all"
+      ]
+    },
+    {
+      "type": "text",
+      "id": "none",
+      "markdown": "Nothing waits for your approval. Daily reports and job orders sent to you appear here."
+    },
+    {
+      "type": "section",
+      "id": "decided",
+      "header": "Decided",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "decided-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "decided-none",
+          "markdown": "Nothing decided yet."
+        }
+      ],
+      "side": true
+    }
+  ]
+}

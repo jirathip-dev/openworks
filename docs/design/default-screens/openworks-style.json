@@ -1,0 +1,12 @@
+{
+  "type": "default",
+  "surface": "solid",
+  "fills": "tint",
+  "buttons": "filled",
+  "marks": "symbols",
+  "sections": "title",
+  "radius": 0.5,
+  "space": 1.1,
+  "motion": 1,
+  "easing": "calm"
+}

@@ -1,4 +1,5 @@
 {
+  "ignore": ["docs/design/**"],
   "workspaces": {
     "web": {
       "entry": ["src/index.ts"],

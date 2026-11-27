@@ -1,0 +1,255 @@
+{
+  "type": "screen",
+  "id": "planner",
+  "title": "Planner",
+  "actions": [
+    {
+      "action": "new-job",
+      "label": "New job"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤",
+              "current": true
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 3,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "view",
+      "name": "view",
+      "action": "view",
+      "options": [
+        {
+          "value": "timeline",
+          "label": "Timeline"
+        },
+        {
+          "value": "month",
+          "label": "Month"
+        },
+        {
+          "value": "table",
+          "label": "Table"
+        }
+      ],
+      "selected": [
+        "timeline"
+      ]
+    },
+    {
+      "type": "stat",
+      "id": "figures",
+      "items": [
+        {
+          "label": "jobs",
+          "value": 14
+        },
+        {
+          "label": "unassigned",
+          "value": 2,
+          "tone": "bad"
+        },
+        {
+          "label": "crews booked",
+          "value": "4 of 4"
+        }
+      ]
+    },
+    {
+      "type": "timeline",
+      "id": "plan",
+      "title": "30 Nov to 13 Dec · Fri 11 Dec is a holiday",
+      "from": "2026-11-30",
+      "to": "2026-12-13",
+      "off": [
+        "2026-12-11"
+      ],
+      "tracks": [
+        {
+          "id": "ca",
+          "title": "Crew A",
+          "subtitle": "Ana Silva · 4",
+          "bars": [
+            {
+              "id": "b1",
+              "start": "2026-11-30",
+              "end": "2026-12-04",
+              "label": "Install, Bay 4",
+              "progress": 60,
+              "tone": "accent"
+            },
+            {
+              "id": "b2",
+              "start": "2026-12-07",
+              "end": "2026-12-10",
+              "label": "Install, Bay 6"
+            }
+          ]
+        },
+        {
+          "id": "cb",
+          "title": "Crew B",
+          "subtitle": "Tomás Reyes · 3",
+          "bars": [
+            {
+              "id": "b3",
+              "start": "2026-11-30",
+              "end": "2026-12-01",
+              "label": "Strip-out, Block A",
+              "tone": "warn",
+              "progress": 70
+            },
+            {
+              "id": "b4",
+              "start": "2026-12-02",
+              "end": "2026-12-02",
+              "label": "Survey"
+            },
+            {
+              "id": "b5",
+              "start": "2026-12-08",
+              "end": "2026-12-10",
+              "label": "Prep, Block B"
+            }
+          ]
+        },
+        {
+          "id": "cc",
+          "title": "Crew C",
+          "subtitle": "Mei Tanaka · 4",
+          "bars": [
+            {
+              "id": "b6",
+              "start": "2026-12-01",
+              "end": "2026-12-03",
+              "label": "Inspection, Library",
+              "progress": 30
+            },
+            {
+              "id": "b7",
+              "start": "2026-12-10",
+              "end": "2026-12-10",
+              "label": "Make good, Level 2",
+              "tone": "info"
+            }
+          ]
+        },
+        {
+          "id": "cd",
+          "title": "Crew D",
+          "subtitle": "Kwame Mensah · 2",
+          "bars": [
+            {
+              "id": "b8",
+              "start": "2026-11-30",
+              "end": "2026-11-30",
+              "label": "Handover",
+              "tone": "ok",
+              "progress": 100,
+              "fixed": true
+            },
+            {
+              "id": "b9",
+              "start": "2026-12-03",
+              "end": "2026-12-04",
+              "label": "Snag list"
+            }
+          ]
+        },
+        {
+          "id": "un",
+          "title": "Unassigned",
+          "subtitle": "2 jobs",
+          "bars": [
+            {
+              "id": "b10",
+              "start": "2026-12-07",
+              "end": "2026-12-08",
+              "label": "Gatehouse repair",
+              "tone": "bad"
+            },
+            {
+              "id": "b11",
+              "start": "2026-12-12",
+              "end": "2026-12-13",
+              "label": "Survey, Bay 6",
+              "tone": "bad"
+            }
+          ]
+        }
+      ],
+      "empty": "No crews yet, so nothing to plan. Add a crew, then drag across its row to plan a job.",
+      "move": {
+        "action": "schedule",
+        "name": "bar"
+      },
+      "stretch": {
+        "action": "schedule",
+        "name": "bar"
+      },
+      "draw": {
+        "action": "schedule",
+        "name": "bar"
+      }
+    }
+  ]
+}

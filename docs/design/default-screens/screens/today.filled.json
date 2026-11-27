@@ -1,0 +1,292 @@
+{
+  "type": "screen",
+  "id": "today",
+  "title": "Today",
+  "actions": [
+    {
+      "action": "new-report",
+      "label": "Write a report"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀",
+              "current": true
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 3,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": "figures",
+      "items": [
+        {
+          "label": "jobs today",
+          "value": 6
+        },
+        {
+          "label": "crews out",
+          "value": 4
+        },
+        {
+          "label": "reports due",
+          "value": 2,
+          "tone": "warn"
+        },
+        {
+          "label": "waiting on you",
+          "value": 3,
+          "tone": "needs"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "mine",
+      "header": "My jobs today",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "mine-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "j1042",
+              "title": "Install, Bay 4",
+              "subtitle": "Harbour depot refit · Crew A",
+              "value": "07:30",
+              "badge": {
+                "text": "on site",
+                "tone": "working"
+              },
+              "tap": {
+                "open": "/jobs/1042"
+              }
+            },
+            {
+              "type": "row",
+              "id": "j1047",
+              "title": "Site survey",
+              "subtitle": "Elm Street housing · Crew B",
+              "value": "09:00",
+              "badge": {
+                "text": "on site",
+                "tone": "working"
+              },
+              "tap": {
+                "open": "/jobs/1047"
+              }
+            },
+            {
+              "type": "row",
+              "id": "j1051",
+              "title": "Inspection",
+              "subtitle": "Civic library upgrade · Crew C",
+              "value": "13:00",
+              "badge": {
+                "text": "planned",
+                "tone": "info"
+              },
+              "tap": {
+                "open": "/jobs/1051"
+              }
+            },
+            {
+              "type": "row",
+              "id": "j1053",
+              "title": "Handover walk",
+              "subtitle": "Riverside clinic · Crew D",
+              "value": "15:30",
+              "badge": {
+                "text": "planned",
+                "tone": "info"
+              },
+              "tap": {
+                "open": "/jobs/1053"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "due",
+      "header": "Reports due",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "due-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "d1",
+              "title": "Install, Bay 4",
+              "subtitle": "Crew A",
+              "value": "17:00",
+              "badge": {
+                "text": "due",
+                "tone": "info"
+              },
+              "tap": {
+                "open": "/reports/new?job=1042"
+              },
+              "accessory": "chevron"
+            },
+            {
+              "type": "row",
+              "id": "d2",
+              "title": "Strip-out, Block A",
+              "subtitle": "Crew B",
+              "value": "yesterday",
+              "badge": {
+                "text": "late",
+                "tone": "warn"
+              },
+              "tap": {
+                "open": "/reports/new?job=1046"
+              },
+              "accessory": "chevron"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "pack-today",
+      "header": "Example pack",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "pack-today-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "pc1",
+              "title": "Lift check",
+              "subtitle": "Bay 4",
+              "value": "before 10:00",
+              "badge": {
+                "text": "due",
+                "tone": "warn"
+              }
+            },
+            {
+              "type": "row",
+              "id": "pc2",
+              "title": "Access log",
+              "subtitle": "Block A",
+              "value": "08:10",
+              "badge": {
+                "text": "done",
+                "tone": "ok"
+              }
+            }
+          ]
+        }
+      ],
+      "footer": "A pack slot: filled by an installed pack, absent with none."
+    },
+    {
+      "type": "section",
+      "id": "waiting",
+      "header": "Waiting on you",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "waiting-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "w1",
+              "title": "Daily report",
+              "subtitle": "Install, Bay 4 · Ana Silva",
+              "value": "2h",
+              "tap": {
+                "open": "/approvals/r881"
+              }
+            },
+            {
+              "type": "row",
+              "id": "w2",
+              "title": "Job order JO-214",
+              "subtitle": "Make good, Level 2",
+              "value": "5h",
+              "tap": {
+                "open": "/approvals/o214"
+              }
+            },
+            {
+              "type": "row",
+              "id": "w4",
+              "title": "Daily report",
+              "subtitle": "Site survey · Tomás Reyes",
+              "value": "1d",
+              "tap": {
+                "open": "/approvals/r879"
+              }
+            }
+          ]
+        }
+      ],
+      "side": true
+    }
+  ]
+}

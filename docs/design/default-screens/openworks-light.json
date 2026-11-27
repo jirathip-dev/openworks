@@ -1,0 +1,25 @@
+{
+  "label": "openworks light",
+  "color-scheme": "light",
+  "tokens": {
+    "--bg": "#f3f2ee",
+    "--card": "#ffffff",
+    "--edge": "#c9c6bd",
+    "--line": "#e2dfd7",
+    "--scrim": "#1a1c1f59",
+    "--fg": "#1b1e22",
+    "--mute": "#585d64",
+    "--l": "#1d4d8f",
+    "--link": "#1d4d8f",
+    "--g": "#2e7a3c",
+    "--a": "#9a5c00",
+    "--r": "#b4271f",
+    "--p": "#6a4c9c",
+    "--c": "#0f6e77",
+    "--fk-l": "#1d4d8f",
+    "--fk-p": "#5d4289",
+    "--fk-c": "#0c5f67",
+    "--fk-g": "#276a33",
+    "--fk-a": "#7f4c00"
+  }
+}

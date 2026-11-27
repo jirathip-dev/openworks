@@ -1,0 +1,338 @@
+{
+  "type": "screen",
+  "id": "crew",
+  "title": "Crew and equipment",
+  "actions": [
+    {
+      "action": "import",
+      "label": "Import"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "Northgate Works",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆"
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓",
+              "badge": {
+                "count": 3,
+                "tone": "bad"
+              }
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉",
+              "current": true
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "id": "crews",
+      "header": "Crews",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "crew-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "ca",
+              "title": "Crew A",
+              "subtitle": "Lead Ana Silva · 4 people",
+              "value": "Bay 4",
+              "badge": {
+                "text": "on site",
+                "tone": "working"
+              },
+              "tap": {
+                "open": "/crews/ca"
+              }
+            },
+            {
+              "type": "row",
+              "id": "cb",
+              "title": "Crew B",
+              "subtitle": "Lead Tomás Reyes · 3 people",
+              "value": "Block A",
+              "badge": {
+                "text": "on site",
+                "tone": "working"
+              },
+              "tap": {
+                "open": "/crews/cb"
+              }
+            },
+            {
+              "type": "row",
+              "id": "cc",
+              "title": "Crew C",
+              "subtitle": "Lead Mei Tanaka · 4 people",
+              "value": "Main hall",
+              "badge": {
+                "text": "on site",
+                "tone": "working"
+              },
+              "tap": {
+                "open": "/crews/cc"
+              }
+            },
+            {
+              "type": "row",
+              "id": "cd",
+              "title": "Crew D",
+              "subtitle": "Lead Kwame Mensah · 2 people",
+              "value": "yard",
+              "badge": {
+                "text": "free",
+                "tone": "mute"
+              },
+              "tap": {
+                "open": "/crews/cd"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": "equipment",
+      "title": "Equipment",
+      "columns": [
+        {
+          "id": "item",
+          "label": "Item",
+          "kind": "text",
+          "phone": "title"
+        },
+        {
+          "id": "kind",
+          "label": "Kind",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "where",
+          "label": "Where",
+          "kind": "text",
+          "phone": "value"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        },
+        {
+          "id": "next",
+          "label": "Next booked",
+          "kind": "date",
+          "phone": "hide"
+        }
+      ],
+      "rows": [
+        {
+          "id": "L-2",
+          "cells": {
+            "item": "Lift L-2",
+            "kind": "Lift",
+            "where": "Bay 4",
+            "status": {
+              "text": "on site",
+              "tone": "working"
+            },
+            "next": "2026-12-07"
+          },
+          "tap": {
+            "open": "/equipment/L-2"
+          }
+        },
+        {
+          "id": "V-1",
+          "cells": {
+            "item": "Van V-1",
+            "kind": "Van",
+            "where": "Bay 4",
+            "status": {
+              "text": "on site",
+              "tone": "working"
+            },
+            "next": "2026-12-07"
+          },
+          "tap": {
+            "open": "/equipment/V-1"
+          }
+        },
+        {
+          "id": "G-3",
+          "cells": {
+            "item": "Generator G-3",
+            "kind": "Generator",
+            "where": "yard",
+            "status": {
+              "text": "free",
+              "tone": "ok"
+            },
+            "next": "2026-12-09"
+          },
+          "tap": {
+            "open": "/equipment/G-3"
+          }
+        },
+        {
+          "id": "S-1",
+          "cells": {
+            "item": "Scaffold set S-1",
+            "kind": "Access",
+            "where": "Block A",
+            "status": {
+              "text": "on site",
+              "tone": "working"
+            }
+          },
+          "tap": {
+            "open": "/equipment/S-1"
+          }
+        },
+        {
+          "id": "L-1",
+          "cells": {
+            "item": "Lift L-1",
+            "kind": "Lift",
+            "where": "workshop",
+            "status": {
+              "text": "out of service",
+              "tone": "bad"
+            }
+          },
+          "tap": {
+            "open": "/equipment/L-1"
+          }
+        }
+      ],
+      "filter": true
+    },
+    {
+      "type": "section",
+      "id": "people",
+      "header": "People",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "people-rows",
+          "rows": [
+            {
+              "type": "row",
+              "id": "u1",
+              "title": "Ana Silva",
+              "subtitle": "Lead · Crew A"
+            },
+            {
+              "type": "row",
+              "id": "u2",
+              "title": "Tomás Reyes",
+              "subtitle": "Lead · Crew B"
+            },
+            {
+              "type": "row",
+              "id": "u3",
+              "title": "Mei Tanaka",
+              "subtitle": "Lead · Crew C"
+            },
+            {
+              "type": "row",
+              "id": "u4",
+              "title": "Kwame Mensah",
+              "subtitle": "Lead · Crew D"
+            },
+            {
+              "type": "row",
+              "id": "u5",
+              "title": "Priya Nair",
+              "subtitle": "Planner"
+            }
+          ]
+        },
+        {
+          "type": "button",
+          "id": "invite",
+          "label": "Invite people",
+          "action": "invite"
+        },
+        {
+          "type": "section",
+          "id": "pack-crew",
+          "header": "Example pack",
+          "blocks": [
+            {
+              "type": "list",
+              "id": "pack-crew-rows",
+              "rows": [
+                {
+                  "type": "row",
+                  "id": "pk1",
+                  "title": "Lift ticket",
+                  "subtitle": "2 people",
+                  "value": "ends in 30 days",
+                  "badge": {
+                    "text": "soon",
+                    "tone": "warn"
+                  }
+                }
+              ]
+            }
+          ],
+          "footer": "A pack slot: filled by an installed pack, absent with none."
+        }
+      ],
+      "side": true
+    }
+  ]
+}

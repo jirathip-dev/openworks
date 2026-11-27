@@ -1,0 +1,178 @@
+{
+  "type": "screen",
+  "id": "projects",
+  "title": "Projects and sites",
+  "actions": [
+    {
+      "action": "new-project",
+      "label": "New project"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "sidebar",
+      "id": "nav",
+      "label": "openworks",
+      "brand": {
+        "label": "New organisation",
+        "href": "#today",
+        "icon": "◈"
+      },
+      "groups": [
+        {
+          "links": [
+            {
+              "label": "Today",
+              "href": "#today",
+              "icon": "☀"
+            },
+            {
+              "label": "Planner",
+              "href": "#planner",
+              "icon": "▤"
+            },
+            {
+              "label": "Projects and sites",
+              "href": "#projects",
+              "icon": "◆",
+              "current": true
+            },
+            {
+              "label": "Job orders",
+              "href": "#orders",
+              "icon": "☰"
+            },
+            {
+              "label": "Daily reports",
+              "href": "#reports",
+              "icon": "✎"
+            },
+            {
+              "label": "Approvals",
+              "href": "#approvals",
+              "icon": "✓"
+            },
+            {
+              "label": "Crew and equipment",
+              "href": "#crew",
+              "icon": "◉"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "Setup",
+          "href": "#setup",
+          "icon": "⚙"
+        }
+      ]
+    },
+    {
+      "type": "chips",
+      "id": "which",
+      "name": "which",
+      "action": "which",
+      "options": [
+        {
+          "value": "active",
+          "label": "Active"
+        },
+        {
+          "value": "planned",
+          "label": "Planned"
+        },
+        {
+          "value": "done",
+          "label": "Done"
+        },
+        {
+          "value": "all",
+          "label": "All"
+        }
+      ],
+      "selected": [
+        "active"
+      ]
+    },
+    {
+      "type": "table",
+      "id": "projects",
+      "title": "Projects",
+      "columns": [
+        {
+          "id": "name",
+          "label": "Project",
+          "kind": "text",
+          "phone": "title",
+          "width": 22
+        },
+        {
+          "id": "client",
+          "label": "Client",
+          "kind": "text",
+          "phone": "meta"
+        },
+        {
+          "id": "sites",
+          "label": "Sites",
+          "kind": "number",
+          "digits": 0,
+          "phone": "hide"
+        },
+        {
+          "id": "open",
+          "label": "Open jobs",
+          "kind": "number",
+          "digits": 0,
+          "phone": "value"
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "kind": "tone",
+          "phone": "tag"
+        },
+        {
+          "id": "start",
+          "label": "Start",
+          "kind": "date",
+          "phone": "hide"
+        },
+        {
+          "id": "end",
+          "label": "End",
+          "kind": "date",
+          "phone": "hide"
+        }
+      ],
+      "rows": [],
+      "empty": "No projects yet. A project groups the sites and jobs of one piece of work.",
+      "filter": true
+    },
+    {
+      "type": "section",
+      "id": "sites",
+      "header": "Sites",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "site-rows",
+          "rows": []
+        },
+        {
+          "type": "text",
+          "id": "sites-none",
+          "markdown": "Pick a project to see its sites."
+        },
+        {
+          "type": "button",
+          "id": "new-site",
+          "label": "New site",
+          "action": "new-site"
+        }
+      ],
+      "side": true
+    }
+  ]
+}
