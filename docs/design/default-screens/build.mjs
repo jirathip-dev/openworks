@@ -1,9 +1,9 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { pair, style, layout } from "./look.mjs";
+import { pair, style } from "./look.mjs";
 import { screens } from "./screens.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -15,7 +15,7 @@ if (!blocks) {
 
 const { gated, css } = await import(join(blocks, "web/src/core/look.ts"));
 const look = gated(pair);
-writeFileSync(join(here, "openworks.css"), `${css(look, style)}\n${layout}\n`);
+writeFileSync(join(here, "openworks.css"), `${css(look, style)}\n${readFileSync(join(here, "layout.css"), "utf8")}`);
 writeFileSync(join(here, "openworks-light.json"), JSON.stringify(pair.light, null, 2) + "\n");
 writeFileSync(join(here, "openworks-dark.json"), JSON.stringify(pair.dark, null, 2) + "\n");
 writeFileSync(join(here, "openworks-style.json"), JSON.stringify(style, null, 2) + "\n");
@@ -27,6 +27,7 @@ mkdirSync(join(here, "png"));
 
 const out = mkdtempSync(join(tmpdir(), "ow-shots-"));
 const runs = [];
+const scripts = [join(here, "months.js")];
 for (const s of screens) {
   for (const [state, screen] of Object.entries(s.states)) {
     const file = join(here, "screens", `${s.name}.${state}.json`);
@@ -35,7 +36,11 @@ for (const s of screens) {
       if (scheme === "dark" && state !== "filled") continue;
       for (const [w, h] of [[1440, s.tall ?? 1000], [390, s.phone ?? 1500]]) {
         const tag = scheme === "dark" ? `-dark` : "";
-        runs.push({ name: `${s.name}-${state}${tag}-${w}`, screen: file, size: `${w}x${h}`, css: [join(here, "openworks.css")], scheme });
+        const css = [join(here, "openworks.css"), ...(s.css?.[state] ?? []).map((f) => join(here, f))];
+        runs.push({ name: `${s.name}-${state}${tag}-${w}`, screen: file, size: `${w}x${h}`, css, scripts, scheme });
+        if (s.menu && state === "filled" && scheme === "light" && w === 390) {
+          runs.push({ name: `${s.name}-${state}-menu-${w}`, screen: file, size: `${w}x844`, css: [...css, join(here, "menu-open.css")], scripts, scheme, steps: [{ tap: { id: "nav" } }, { shot: { name: "menu" } }] });
+        }
       }
     }
   }

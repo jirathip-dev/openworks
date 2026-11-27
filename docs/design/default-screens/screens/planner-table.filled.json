@@ -52,7 +52,7 @@
               "href": "#approvals",
               "icon": "✓",
               "badge": {
-                "count": 4,
+                "count": 3,
                 "tone": "bad"
               }
             },
@@ -219,7 +219,7 @@
             "site": "Block B",
             "crew": "Crew B",
             "start": "2026-12-08",
-            "end": "2026-12-11",
+            "end": "2026-12-10",
             "status": {
               "text": "planned",
               "tone": "info"

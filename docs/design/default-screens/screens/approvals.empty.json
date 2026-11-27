@@ -79,10 +79,6 @@
         {
           "value": "orders",
           "label": "Orders"
-        },
-        {
-          "value": "hours",
-          "label": "Hours"
         }
       ],
       "selected": [
@@ -92,7 +88,7 @@
     {
       "type": "text",
       "id": "none",
-      "markdown": "Nothing waits for your approval. Reports, job orders and hours sent to you appear here."
+      "markdown": "Nothing waits for your approval. Daily reports and job orders sent to you appear here."
     },
     {
       "type": "section",

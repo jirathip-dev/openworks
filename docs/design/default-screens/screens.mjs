@@ -20,7 +20,7 @@ const nav = (current, filled) => ({
         href: `#${l.id}`,
         icon: l.icon,
         ...(l.id === current ? { current: true } : {}),
-        ...(filled && l.id === "approvals" ? { badge: { count: 4, tone: "bad" } } : {}),
+        ...(filled && l.id === "approvals" ? { badge: { count: 3, tone: "bad" } } : {}),
       })),
     },
   ],
@@ -46,7 +46,7 @@ const badge = (text, tone) => ({ text, tone });
 const slot = (id, blocks) => section(id, "Example pack", blocks, { footer: "A pack slot: filled by an installed pack, absent with none." });
 
 const crews = ["Crew A", "Crew B", "Crew C", "Crew D"];
-const off = ["2026-12-05", "2026-12-06", "2026-12-12", "2026-12-13"];
+const holidays = ["2026-12-11"];
 
 const photo = (label) =>
   `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect width="320" height="240" fill="#8a8f96"/><path d="M0 190 L90 120 L150 170 L220 100 L320 180 L320 240 L0 240Z" fill="#6c7179"/><text x="16" y="34" font-family="sans-serif" font-size="20" fill="#ffffff">${label}</text></svg>`)}`;
@@ -54,6 +54,7 @@ const photo = (label) =>
 const today = {
   name: "today",
   dark: true,
+  menu: true,
   tall: 780,
   phone: 1250,
   states: {
@@ -80,7 +81,7 @@ const today = {
         { label: "jobs today", value: 6 },
         { label: "crews out", value: 4 },
         { label: "reports due", value: 2, tone: "warn" },
-        { label: "waiting on you", value: 4, tone: "needs" },
+        { label: "waiting on you", value: 3, tone: "needs" },
       ]),
       section("mine", "My jobs today", [
         list("mine-rows", [
@@ -101,7 +102,6 @@ const today = {
         list("waiting-rows", [
           row("w1", "Daily report", "Install, Bay 4 · Ana Silva", "2h", { tap: { open: "/approvals/r881" } }),
           row("w2", "Job order JO-214", "Make good, Level 2", "5h", { tap: { open: "/approvals/o214" } }),
-          row("w3", "Hours, week 49", "Crew C · 4 people", "1d", { tap: { open: "/approvals/t49c" } }),
           row("w4", "Daily report", "Site survey · Tomás Reyes", "1d", { tap: { open: "/approvals/r879" } }),
         ]),
       ], { side: true }),
@@ -183,7 +183,7 @@ const tracks = [
     bars: [
       { id: "b3", start: "2026-11-30", end: "2026-12-01", label: "Strip-out, Block A", tone: "warn", progress: 70 },
       { id: "b4", start: "2026-12-02", end: "2026-12-02", label: "Survey" },
-      { id: "b5", start: "2026-12-08", end: "2026-12-11", label: "Prep, Block B" },
+      { id: "b5", start: "2026-12-08", end: "2026-12-10", label: "Prep, Block B" },
     ],
   },
   {
@@ -192,7 +192,7 @@ const tracks = [
     subtitle: "Mei Tanaka · 4",
     bars: [
       { id: "b6", start: "2026-12-01", end: "2026-12-03", label: "Inspection, Library", progress: 30 },
-      { id: "b7", start: "2026-12-09", end: "2026-12-11", label: "Make good, Level 2", tone: "info" },
+      { id: "b7", start: "2026-12-09", end: "2026-12-10", label: "Make good, Level 2", tone: "info" },
     ],
   },
   {
@@ -201,13 +201,13 @@ const tracks = [
     subtitle: "Kwame Mensah · 2",
     bars: [
       { id: "b8", start: "2026-11-30", end: "2026-11-30", label: "Handover", tone: "ok", progress: 100, fixed: true },
-      { id: "b9", start: "2026-12-03", end: "2026-12-04", label: "Snag list" },
+      { id: "b9", start: "2026-12-03", end: "2026-12-05", label: "Snag list" },
     ],
   },
-  { id: "un", title: "Unassigned", subtitle: "2 jobs", bars: [{ id: "b10", start: "2026-12-07", end: "2026-12-08", label: "Gatehouse repair", tone: "bad" }, { id: "b11", start: "2026-12-10", end: "2026-12-11", label: "Survey, Bay 6", tone: "bad" }] },
+  { id: "un", title: "Unassigned", subtitle: "2 jobs", bars: [{ id: "b10", start: "2026-12-07", end: "2026-12-08", label: "Gatehouse repair", tone: "bad" }, { id: "b11", start: "2026-12-12", end: "2026-12-13", label: "Survey, Bay 6", tone: "bad" }] },
 ];
 const gestures = { move: { action: "schedule", name: "bar" }, stretch: { action: "schedule", name: "bar" }, draw: { action: "schedule", name: "bar" } };
-const timeline = (filled) => ({ type: "timeline", id: "plan", title: "30 Nov to 13 Dec", from: "2026-11-30", to: "2026-12-13", off, tracks: filled ? tracks : [], empty: "No crews yet, so nothing to plan. Add a crew, then drag across its row to plan a job.", ...gestures });
+const timeline = (filled) => ({ type: "timeline", id: "plan", title: "30 Nov to 13 Dec · Fri 11 Dec is a holiday", from: "2026-11-30", to: "2026-12-13", off: holidays, tracks: filled ? tracks : [], empty: "No crews yet, so nothing to plan. Add a crew, then drag across its row to plan a job.", ...gestures });
 const views = (v) => chips("view", "view", ["Timeline", "Month", "Table"], v);
 const plannerFigures = (filled) =>
   tiles("figures", [
@@ -235,10 +235,40 @@ const jobFields = (v) => [
   { type: "text", name: "end", label: "End", value: v.end ?? "", placeholder: "day" },
 ];
 
+const jobHours = section("hours", "Hours", [
+  tiles("hours-figures", [
+    { label: "budget, person-hours", value: "160 h" },
+    { label: "used", value: "84.5 h" },
+    { label: "left", value: "75.5 h", tone: "ok" },
+  ]),
+  {
+    type: "chart",
+    id: "hours-days",
+    chart: "combo",
+    title: "Person-hours by day",
+    format: "count",
+    x: ["Mon 30", "Tue 1", "Wed 2", "Thu 3", "Fri 4"],
+    series: [
+      { name: "used", as: "bar", values: [31, 22.5, 31, 0, 0] },
+      { name: "budget", as: "line", dash: true, tone: "mute", values: [32, 32, 32, 32, 32] },
+    ],
+  },
+  section("hours-people", "By person", [
+    list("hours-people-rows", [
+      row("hp1", "Ana Silva", "3 days", "24 of 40 h"),
+      row("hp2", "Ben Okafor", "3 days", "24 of 40 h"),
+      row("hp3", "Lena Kovac", "3 days", "21.5 of 40 h"),
+      row("hp4", "Sam Ito", "2 days", "15 of 40 h"),
+    ]),
+  ]),
+  note("hours-from", "Read only: hours come from the daily reports. Thu and Fri are not reported yet."),
+], { side: true });
+
 const plannerJob = {
   name: "planner-job",
-  tall: 780,
-  phone: 1700,
+  css: { filled: ["picked.css"] },
+  tall: 1560,
+  phone: 2050,
   states: {
     empty: screen("planner-job", "Planner", "planner", true, [{ action: "new-job", label: "New job" }], [
       views("Timeline"),
@@ -246,7 +276,7 @@ const plannerJob = {
       section("job", "New job", [
         { type: "form", id: "job-form", action: "create-job", fields: jobFields({}) },
         button("plan-job", "Plan job", "create-job", "primary"),
-        note("job-hint", "Equipment, orders and reports appear here once the job is planned."),
+        note("job-hint", "Equipment, orders, reports and hours appear here once the job is planned."),
       ], { side: true }),
     ]),
     filled: screen("planner-job", "Planner", "planner", true, [{ action: "new-job", label: "New job" }], [
@@ -266,14 +296,15 @@ const plannerJob = {
         button("open-order", "Open job order", "open-order"),
         button("edit-job", "Edit job", "edit-job", "primary"),
       ], { side: true }),
+      jobHours,
     ]),
   },
 };
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const load = [
-  [null, 3, 4, 4, 2, null, null],
-  [5, 6, 3, 4, 4, null, null],
+  [null, 3, 4, 4, 2, 1, null],
+  [5, 6, 3, 4, "off", 1, null],
   [2, 3, 5, 6, 3, 1, null],
   [4, 2, 1, null, null, null, null],
   [null, null, 2, 3, 1, null, null],
@@ -282,8 +313,8 @@ const monthDay = (filled) =>
   section("day", filled ? "Wed 9 Dec" : "This month", filled
     ? [list("day-rows", [
         row("m1", "Install, Bay 6", "Crew A", "4 days", { tap: { open: "/jobs/1044" } }),
-        row("m2", "Prep, Block B", "Crew B", "4 days", { tap: { open: "/jobs/1049" } }),
-        row("m3", "Make good, Level 2", "Crew C", "3 days", { tap: { open: "/jobs/1052" } }),
+        row("m2", "Prep, Block B", "Crew B", "3 days", { tap: { open: "/jobs/1049" } }),
+        row("m3", "Make good, Level 2", "Crew C", "2 days", { tap: { open: "/jobs/1052" } }),
       ])]
     : [list("day-rows", []), note("day-none", "Pick a day to see its jobs.")], { side: true });
 
@@ -304,7 +335,7 @@ const plannerMonth = {
         id: "month",
         title: "December 2026: jobs a day",
         columns: days,
-        grid: load.map((w, i) => ({ name: `${["30 Nov", "7 Dec", "14 Dec", "21 Dec", "28 Dec"][i]}`, cells: w.map((v) => (v === null ? { label: "·" } : { value: v })) })),
+        grid: load.map((w, i) => ({ name: `${["30 Nov", "7 Dec", "14 Dec", "21 Dec", "28 Dec"][i]}`, cells: w.map((v) => (v === null ? { label: "·" } : typeof v === "string" ? { label: v } : { value: v })) })),
         selected: { row: "7 Dec", column: "Wed" },
         tap: { action: "pick-day" },
       },
@@ -345,7 +376,7 @@ const plannerTable = {
           job("1042", "Install, Bay 4", "Harbour depot refit", "Bay 4", "Crew A", "2026-11-30", "2026-12-04", "on site", "working", 60),
           job("1044", "Install, Bay 6", "Harbour depot refit", "Bay 6", "Crew A", "2026-12-07", "2026-12-10", "planned", "info", 0),
           job("1046", "Strip-out, Block A", "Elm Street housing", "Block A", "Crew B", "2026-11-30", "2026-12-01", "behind", "warn", 70),
-          job("1049", "Prep, Block B", "Elm Street housing", "Block B", "Crew B", "2026-12-08", "2026-12-11", "planned", "info", 0),
+          job("1049", "Prep, Block B", "Elm Street housing", "Block B", "Crew B", "2026-12-08", "2026-12-10", "planned", "info", 0),
           job("1051", "Inspection, Library", "Civic library upgrade", "Main hall", "Crew C", "2026-12-01", "2026-12-03", "on site", "working", 30),
           job("1053", "Handover", "Riverside clinic", "Ward wing", "Crew D", "2026-11-30", "2026-11-30", "done", "ok", 100),
           job("1055", "Gatehouse repair", "Harbour depot refit", "Gatehouse", "", "2026-12-07", "2026-12-08", "no crew", "bad", 0),
@@ -467,7 +498,7 @@ const reportBlocks = (filled) => [
 const report = {
   name: "report",
   tall: 900,
-  phone: 1900,
+  phone: 1400,
   states: {
     empty: screen("report", "Daily report", "reports", false, [{ action: "save-draft", label: "Save draft" }], [
       ...reportBlocks(false),
@@ -517,7 +548,7 @@ const orders = {
         rows: [
           order("JO-211", "Install, Bay 4", "Bay 4", "Crew A", "2026-12-04", "accepted", "working"),
           order("JO-212", "Strip-out, Block A", "Block A", "Crew B", "2026-12-01", "accepted", "working"),
-          order("JO-214", "Make good, Level 2", "Main hall", "Crew C", "2026-12-11", "to approve", "needs"),
+          order("JO-214", "Make good, Level 2", "Main hall", "Crew C", "2026-12-10", "to approve", "needs"),
           order("JO-215", "Install, Bay 6", "Bay 6", "Crew A", "2026-12-10", "issued", "info"),
           order("JO-216", "Gatehouse repair", "Gatehouse", "no crew", "2026-12-08", "draft", "mute"),
         ],
@@ -552,15 +583,14 @@ const approvals = {
   phone: 1900,
   states: {
     empty: screen("approvals", "Approvals", "approvals", false, [], [
-      chips("which", "which", ["All", "Reports", "Orders", "Hours"], "All"),
-      note("none", "Nothing waits for your approval. Reports, job orders and hours sent to you appear here."),
+      chips("which", "which", ["All", "Reports", "Orders"], "All"),
+      note("none", "Nothing waits for your approval. Daily reports and job orders sent to you appear here."),
       section("decided", "Decided", [list("decided-rows", []), note("decided-none", "Nothing decided yet.")], { side: true }),
     ]),
     filled: screen("approvals", "Approvals", "approvals", true, [], [
-      chips("which", "which", ["All", "Reports", "Orders", "Hours"], "All"),
+      chips("which", "which", ["All", "Reports", "Orders"], "All"),
       ask("r881", "Daily report · Install, Bay 4", "Ana Silva · Tue 1 Dec", [["People", "3 · 22.5 h"], ["Work done", "Frames on the north wall"], ["Issues", "Rain 10:00 to 11:30"], ["Photos", "2"]]),
-      ask("o214", "Job order JO-214 · Make good, Level 2", "Priya Nair · for Crew C", [["Days", "9 to 11 Dec"], ["Site", "Main hall"]]),
-      ask("t49c", "Hours · week 49", "Crew C · 4 people", [["Recorded", "152 h"], ["Over the plan", "6 h"]]),
+      ask("o214", "Job order JO-214 · Make good, Level 2", "Priya Nair · for Crew C", [["Days", "9 to 10 Dec"], ["Site", "Main hall"]]),
       section("decided", "Decided", [
         list("decided-rows", [
           row("x1", "Daily report · Survey", "approved by you", "Mon", { badge: badge("approved", "ok") }),

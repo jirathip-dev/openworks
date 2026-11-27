@@ -52,7 +52,7 @@
               "href": "#approvals",
               "icon": "✓",
               "badge": {
-                "count": 4,
+                "count": 3,
                 "tone": "bad"
               }
             },
@@ -98,14 +98,11 @@
     {
       "type": "timeline",
       "id": "plan",
-      "title": "30 Nov to 13 Dec",
+      "title": "30 Nov to 13 Dec · Fri 11 Dec is a holiday",
       "from": "2026-11-30",
       "to": "2026-12-13",
       "off": [
-        "2026-12-05",
-        "2026-12-06",
-        "2026-12-12",
-        "2026-12-13"
+        "2026-12-11"
       ],
       "tracks": [
         {
@@ -151,7 +148,7 @@
             {
               "id": "b5",
               "start": "2026-12-08",
-              "end": "2026-12-11",
+              "end": "2026-12-10",
               "label": "Prep, Block B"
             }
           ]
@@ -171,7 +168,7 @@
             {
               "id": "b7",
               "start": "2026-12-09",
-              "end": "2026-12-11",
+              "end": "2026-12-10",
               "label": "Make good, Level 2",
               "tone": "info"
             }
@@ -194,7 +191,7 @@
             {
               "id": "b9",
               "start": "2026-12-03",
-              "end": "2026-12-04",
+              "end": "2026-12-05",
               "label": "Snag list"
             }
           ]
@@ -213,8 +210,8 @@
             },
             {
               "id": "b11",
-              "start": "2026-12-10",
-              "end": "2026-12-11",
+              "start": "2026-12-12",
+              "end": "2026-12-13",
               "label": "Survey, Bay 6",
               "tone": "bad"
             }
@@ -358,6 +355,119 @@
           "label": "Edit job",
           "action": "edit-job",
           "style": "primary"
+        }
+      ],
+      "side": true
+    },
+    {
+      "type": "section",
+      "id": "hours",
+      "header": "Hours",
+      "blocks": [
+        {
+          "type": "stat",
+          "id": "hours-figures",
+          "items": [
+            {
+              "label": "budget, person-hours",
+              "value": "160 h"
+            },
+            {
+              "label": "used",
+              "value": "84.5 h"
+            },
+            {
+              "label": "left",
+              "value": "75.5 h",
+              "tone": "ok"
+            }
+          ]
+        },
+        {
+          "type": "chart",
+          "id": "hours-days",
+          "chart": "combo",
+          "title": "Person-hours by day",
+          "format": "count",
+          "x": [
+            "Mon 30",
+            "Tue 1",
+            "Wed 2",
+            "Thu 3",
+            "Fri 4"
+          ],
+          "series": [
+            {
+              "name": "used",
+              "as": "bar",
+              "values": [
+                31,
+                22.5,
+                31,
+                0,
+                0
+              ]
+            },
+            {
+              "name": "budget",
+              "as": "line",
+              "dash": true,
+              "tone": "mute",
+              "values": [
+                32,
+                32,
+                32,
+                32,
+                32
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "id": "hours-people",
+          "header": "By person",
+          "blocks": [
+            {
+              "type": "list",
+              "id": "hours-people-rows",
+              "rows": [
+                {
+                  "type": "row",
+                  "id": "hp1",
+                  "title": "Ana Silva",
+                  "subtitle": "3 days",
+                  "value": "24 of 40 h"
+                },
+                {
+                  "type": "row",
+                  "id": "hp2",
+                  "title": "Ben Okafor",
+                  "subtitle": "3 days",
+                  "value": "24 of 40 h"
+                },
+                {
+                  "type": "row",
+                  "id": "hp3",
+                  "title": "Lena Kovac",
+                  "subtitle": "3 days",
+                  "value": "21.5 of 40 h"
+                },
+                {
+                  "type": "row",
+                  "id": "hp4",
+                  "title": "Sam Ito",
+                  "subtitle": "2 days",
+                  "value": "15 of 40 h"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "hours-from",
+          "markdown": "Read only: hours come from the daily reports. Thu and Fri are not reported yet."
         }
       ],
       "side": true

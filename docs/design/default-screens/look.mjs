@@ -63,6 +63,3 @@ export const style = {
   motion: 1,
   easing: "calm",
 };
-
-export const layout = `@media (min-width:600px){.scr-main>.sd{position:fixed;top:0;bottom:0;left:0;height:auto;width:var(--rail);contain:none}.scr:has(>.scr-cols>.scr-main>.sd){padding-left:calc(4 * var(--s4))}}
-@media (max-width:599px){.scr-main>.sd{height:auto;contain:none}.scr-main>.sd .sdn{visibility:hidden}}`;

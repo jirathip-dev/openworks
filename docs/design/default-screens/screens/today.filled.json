@@ -52,7 +52,7 @@
               "href": "#approvals",
               "icon": "✓",
               "badge": {
-                "count": 4,
+                "count": 3,
                 "tone": "bad"
               }
             },
@@ -91,7 +91,7 @@
         },
         {
           "label": "waiting on you",
-          "value": 4,
+          "value": 3,
           "tone": "needs"
         }
       ]
@@ -271,16 +271,6 @@
               "value": "5h",
               "tap": {
                 "open": "/approvals/o214"
-              }
-            },
-            {
-              "type": "row",
-              "id": "w3",
-              "title": "Hours, week 49",
-              "subtitle": "Crew C · 4 people",
-              "value": "1d",
-              "tap": {
-                "open": "/approvals/t49c"
               }
             },
             {

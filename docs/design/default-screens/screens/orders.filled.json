@@ -52,7 +52,7 @@
               "href": "#approvals",
               "icon": "✓",
               "badge": {
-                "count": 4,
+                "count": 3,
                 "tone": "bad"
               }
             },
@@ -184,7 +184,7 @@
             "job": "Make good, Level 2",
             "site": "Main hall",
             "to": "Crew C",
-            "due": "2026-12-11",
+            "due": "2026-12-10",
             "status": {
               "text": "to approve",
               "tone": "needs"

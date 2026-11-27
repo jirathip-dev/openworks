@@ -46,7 +46,7 @@
               "icon": "✓",
               "current": true,
               "badge": {
-                "count": 4,
+                "count": 3,
                 "tone": "bad"
               }
             },
@@ -83,10 +83,6 @@
         {
           "value": "orders",
           "label": "Orders"
-        },
-        {
-          "value": "hours",
-          "label": "Hours"
         }
       ],
       "selected": [
@@ -162,7 +158,7 @@
               "type": "row",
               "id": "o214-f0",
               "title": "Days",
-              "value": "9 to 11 Dec"
+              "value": "9 to 10 Dec"
             },
             {
               "type": "row",
@@ -184,48 +180,6 @@
         {
           "type": "button",
           "id": "o214-back",
-          "label": "Return",
-          "action": "return"
-        }
-      ]
-    },
-    {
-      "type": "card",
-      "id": "t49c",
-      "kind": "ask",
-      "title": "Hours · week 49",
-      "subtitle": "Crew C · 4 people",
-      "blocks": [
-        {
-          "type": "list",
-          "id": "t49c-facts",
-          "rows": [
-            {
-              "type": "row",
-              "id": "t49c-f0",
-              "title": "Recorded",
-              "value": "152 h"
-            },
-            {
-              "type": "row",
-              "id": "t49c-f1",
-              "title": "Over the plan",
-              "value": "6 h"
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "type": "button",
-          "id": "t49c-ok",
-          "label": "Approve",
-          "action": "approve",
-          "style": "primary"
-        },
-        {
-          "type": "button",
-          "id": "t49c-back",
           "label": "Return",
           "action": "return"
         }

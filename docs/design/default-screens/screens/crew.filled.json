@@ -51,7 +51,7 @@
               "href": "#approvals",
               "icon": "✓",
               "badge": {
-                "count": 4,
+                "count": 3,
                 "tone": "bad"
               }
             },

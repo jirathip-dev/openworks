@@ -52,7 +52,7 @@
               "href": "#approvals",
               "icon": "✓",
               "badge": {
-                "count": 4,
+                "count": 3,
                 "tone": "bad"
               }
             },
@@ -128,7 +128,7 @@
               "value": 2
             },
             {
-              "label": "·"
+              "value": 1
             },
             {
               "label": "·"
@@ -151,10 +151,10 @@
               "value": 4
             },
             {
-              "value": 4
+              "label": "off"
             },
             {
-              "label": "·"
+              "value": 1
             },
             {
               "label": "·"
@@ -272,7 +272,7 @@
               "id": "m2",
               "title": "Prep, Block B",
               "subtitle": "Crew B",
-              "value": "4 days",
+              "value": "3 days",
               "tap": {
                 "open": "/jobs/1049"
               }
@@ -282,7 +282,7 @@
               "id": "m3",
               "title": "Make good, Level 2",
               "subtitle": "Crew C",
-              "value": "3 days",
+              "value": "2 days",
               "tap": {
                 "open": "/jobs/1052"
               }
