@@ -130,6 +130,7 @@ pub trait Tx {
 pub enum Kind {
     Read,
     Write,
+    Create,
     Closed,
 }
 
@@ -177,6 +178,22 @@ impl Declaration {
         Self {
             name,
             kind: Kind::Write,
+            needs,
+            queries,
+            handler: Handler::Store(handler),
+        }
+    }
+
+    /// A create: a write that runs once per `Idempotency-Key` and answers a repeat with its first answer.
+    pub const fn create(
+        name: &'static str,
+        needs: Word,
+        queries: &'static [&'static str],
+        handler: fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>,
+    ) -> Self {
+        Self {
+            name,
+            kind: Kind::Create,
             needs,
             queries,
             handler: Handler::Store(handler),
@@ -235,6 +252,13 @@ macro_rules! write {
 }
 
 #[macro_export]
+macro_rules! create {
+    ($name:literal, needs: $word:ident, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
+        $crate::Declaration::create($name, $crate::Word::$word, &[$($query),*], $handler)
+    };
+}
+
+#[macro_export]
 macro_rules! closed {
     ($name:literal, needs: $word:ident, $handler:expr $(,)?) => {
         $crate::Declaration::closed($name, $crate::Word::$word, $handler)
@@ -262,6 +286,27 @@ macro_rules! operations {
             }
         }
     };
+}
+
+/// One change a write made, as its event and its hooks see it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Change {
+    pub org: Id,
+    pub person: Id,
+    pub operation: String,
+    pub body: String,
+    pub at: i64,
+}
+
+/// Code run around every change in the order added: an error before commit rolls it back, one after is retried.
+pub trait Hook {
+    fn before_commit(&self, _change: &Change) -> Result<(), Fail> {
+        Ok(())
+    }
+
+    fn after_commit(&self, _change: &Change) -> Result<(), Fail> {
+        Ok(())
+    }
 }
 
 /// Who may reach an operation through its mount.

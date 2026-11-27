@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
-use openworks_core::{Declaration, Fail, Handler, Id, Kind, Mount, Reach, Role, Row, Tx, Value, Who};
+use openworks_core::{Change, Declaration, Fail, Handler, Hook, Id, Kind, Mount, Reach, Role, Row, Tx, Value, Who};
 
+mod due;
 mod members;
 mod orgs;
+
+const AFTER_COMMIT_ATTEMPTS: usize = 3;
 
 openworks_core::operations! {
     OrgShow => orgs::SHOW,
@@ -53,6 +56,7 @@ pub trait Host {
 pub struct Request {
     pub path: String,
     pub credential: String,
+    pub idempotency_key: Option<String>,
     pub body: String,
 }
 
@@ -81,6 +85,7 @@ struct Route {
 pub struct Builder<H> {
     host: H,
     mounts: Vec<Mount>,
+    hooks: Vec<Box<dyn Hook>>,
 }
 
 impl<H: Host> Builder<H> {
@@ -88,6 +93,13 @@ impl<H: Host> Builder<H> {
     #[must_use]
     pub fn mount(mut self, mount: Mount) -> Self {
         self.mounts.push(mount);
+        self
+    }
+
+    /// Adds a hook, run after the ones already added.
+    #[must_use]
+    pub fn hook(mut self, hook: impl Hook + 'static) -> Self {
+        self.hooks.push(Box::new(hook));
         self
     }
 
@@ -110,6 +122,7 @@ impl<H: Host> Builder<H> {
         let openworks = Openworks {
             host: self.host,
             routes,
+            hooks: self.hooks,
         };
         openworks.check().map_err(Refused::Unscoped)?;
         Ok(openworks)
@@ -120,6 +133,7 @@ impl<H: Host> Builder<H> {
 pub struct Openworks<H> {
     host: H,
     routes: HashMap<String, Route>,
+    hooks: Vec<Box<dyn Hook>>,
 }
 
 impl<H: Host> Openworks<H> {
@@ -129,6 +143,7 @@ impl<H: Host> Openworks<H> {
         Builder {
             host,
             mounts: vec![Operation::mount()],
+            hooks: Vec::new(),
         }
     }
 
@@ -137,15 +152,38 @@ impl<H: Host> Openworks<H> {
         self.host.transact(&mut |tx| openworks_db::migrate(tx))
     }
 
+    /// Runs every due job for every org, each job in one transaction; running it twice does what once did.
+    pub fn run_due(&self, now: i64) -> Result<(), Fail> {
+        for job in due::JOBS {
+            self.host.transact(&mut |tx| {
+                for row in tx.run(openworks_db::orgs::ALL, &[])? {
+                    if let Some(Value::Text(org)) = row.first() {
+                        let mut declared = Declared {
+                            tx: &mut *tx,
+                            queries: job.queries,
+                        };
+                        (job.run)(&Id(org.clone()), &mut declared, now)?;
+                    }
+                }
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
+
     /// Every compiled query that touches a `works` table names `org_id`, else the ones that do not.
     pub fn check(&self) -> Result<(), Vec<&'static str>> {
         let compiled = self
             .routes
             .values()
             .flat_map(|route| route.declaration.queries().iter().copied())
+            .chain(due::JOBS.iter().flat_map(|job| job.queries.iter().copied()))
             .chain([
                 openworks_db::AUDIT,
                 openworks_db::EVENT,
+                openworks_db::orgs::ALL,
+                openworks_db::idempotency::FIND,
+                openworks_db::idempotency::SAVE,
                 openworks_db::members::FIND,
                 openworks_db::members::TIE,
             ]);
@@ -164,7 +202,12 @@ impl<H: Host> Openworks<H> {
         let Some(caller) = self.host.who(&request.credential) else {
             return answer(401, "sign in");
         };
-        match self.call(*route, &|tx| self.sign_in(tx, &caller), &request.body) {
+        match self.call(
+            *route,
+            &|tx| self.sign_in(tx, &caller),
+            &request.body,
+            request.idempotency_key.as_deref(),
+        ) {
             Ok(body) => Response { status: 200, body },
             Err(fail) => answer(status(&fail), &fail.to_string()),
         }
@@ -182,7 +225,7 @@ impl<H: Host> Openworks<H> {
             reach: Reach::Org,
             key: KEY,
         };
-        self.call(route, &|_| Ok(who.clone()), &format!("{email} {}", role.name()))
+        self.call(route, &|_| Ok(who.clone()), &format!("{email} {}", role.name()), None)
     }
 
     fn sign_in(&self, tx: &mut dyn Tx, caller: &Caller) -> Result<Who, Fail> {
@@ -205,49 +248,94 @@ impl<H: Host> Openworks<H> {
             role: role.ok_or_else(|| Fail::Store("a member row holds no role".to_owned()))?,
         };
         if tied {
-            self.trail(tx, &who, &format!("{KEY}.join"), &caller.email)?;
+            let change = Change {
+                org: who.org.clone(),
+                person: who.person.clone(),
+                operation: format!("{KEY}.join"),
+                body: caller.email.clone(),
+                at: self.host.now(),
+            };
+            self.trail(tx, &change)?;
         }
         Ok(who)
     }
 
-    fn call(&self, route: Route, sign: &dyn Fn(&mut dyn Tx) -> Result<Who, Fail>, body: &str) -> Result<String, Fail> {
+    fn call(
+        &self,
+        route: Route,
+        sign: &dyn Fn(&mut dyn Tx) -> Result<Who, Fail>,
+        body: &str,
+        key: Option<&str>,
+    ) -> Result<String, Fail> {
         let declaration = route.declaration;
+        let key = match (declaration.kind(), key) {
+            (Kind::Create, None | Some("")) => {
+                return Err(Fail::Invalid("a create needs an Idempotency-Key".to_owned()));
+            }
+            (Kind::Create, key) => key,
+            _ => None,
+        };
+        let changes = matches!(declaration.kind(), Kind::Write | Kind::Create);
         let mut answered = None;
+        let mut committed = None;
         self.host.transact(&mut |tx| {
+            committed = None;
             let who = sign(tx)?;
             if who.role.grants(declaration.needs()).is_none() {
                 return Err(Fail::Needs(declaration.needs()));
             }
-            let answer = match declaration.handler() {
-                Handler::Closed(run) => run(&who, body)?,
-                Handler::Store(run) => run(
-                    &who,
-                    &mut Declared {
-                        tx: &mut *tx,
-                        queries: declaration.queries(),
-                    },
-                    body,
-                )?,
+            let change = Change {
+                org: who.org.clone(),
+                person: who.person.clone(),
+                operation: format!("{}.{}", route.key, declaration.name()),
+                body: body.to_owned(),
+                at: self.host.now(),
             };
-            if declaration.kind() == Kind::Write {
-                self.trail(tx, &who, &format!("{}.{}", route.key, declaration.name()), body)?;
+            answered = key.map(|key| replay(tx, &change, key)).transpose()?.flatten();
+            if answered.is_some() {
+                return Ok(());
+            }
+            let answer = run(declaration, &who, tx, body)?;
+            if changes {
+                self.trail(tx, &change)?;
+                if let Some(key) = key {
+                    keep(tx, &change, key, &answer)?;
+                }
+                for hook in &self.hooks {
+                    hook.before_commit(&change)?;
+                }
+                committed = Some(change);
             }
             answered = Some(answer);
             Ok(())
         })?;
+        if let Some(change) = committed {
+            self.after_commit(&change);
+        }
         answered.ok_or_else(|| Fail::Store("the transaction ran no work".to_owned()))
     }
 
-    fn trail(&self, tx: &mut dyn Tx, who: &Who, operation: &str, body: &str) -> Result<(), Fail> {
-        let org = Value::Text(who.org.0.clone());
-        let at = Value::Int(self.host.now());
+    fn after_commit(&self, change: &Change) {
+        for hook in &self.hooks {
+            for _ in 0..AFTER_COMMIT_ATTEMPTS {
+                if hook.after_commit(change).is_ok() {
+                    break;
+                }
+            }
+        }
+    }
+
+    fn trail(&self, tx: &mut dyn Tx, change: &Change) -> Result<(), Fail> {
+        let org = Value::Text(change.org.0.clone());
+        let operation = Value::Text(change.operation.clone());
+        let at = Value::Int(change.at);
         tx.run(
             openworks_db::AUDIT,
             &[
                 Value::Text(self.host.id().0),
                 org.clone(),
-                Value::Text(who.person.0.clone()),
-                Value::Text(operation.to_owned()),
+                Value::Text(change.person.0.clone()),
+                operation.clone(),
                 at.clone(),
             ],
         )?;
@@ -256,12 +344,55 @@ impl<H: Host> Openworks<H> {
             &[
                 Value::Text(self.host.id().0),
                 org,
-                Value::Text(operation.to_owned()),
-                Value::Text(body.to_owned()),
+                operation,
+                Value::Text(change.body.clone()),
                 at,
             ],
         )?;
         Ok(())
+    }
+}
+
+fn replay(tx: &mut dyn Tx, change: &Change, key: &str) -> Result<Option<String>, Fail> {
+    let rows = tx.run(
+        openworks_db::idempotency::FIND,
+        &[
+            Value::Text(change.org.0.clone()),
+            Value::Text(change.operation.clone()),
+            Value::Text(key.to_owned()),
+        ],
+    )?;
+    Ok(match rows.first().and_then(|row| row.first()) {
+        Some(Value::Text(answer)) => Some(answer.clone()),
+        _ => None,
+    })
+}
+
+fn keep(tx: &mut dyn Tx, change: &Change, key: &str, answer: &str) -> Result<(), Fail> {
+    tx.run(
+        openworks_db::idempotency::SAVE,
+        &[
+            Value::Text(change.org.0.clone()),
+            Value::Text(change.operation.clone()),
+            Value::Text(key.to_owned()),
+            Value::Text(answer.to_owned()),
+            Value::Int(change.at),
+        ],
+    )?;
+    Ok(())
+}
+
+fn run(declaration: &Declaration, who: &Who, tx: &mut dyn Tx, body: &str) -> Result<String, Fail> {
+    match declaration.handler() {
+        Handler::Closed(run) => run(who, body),
+        Handler::Store(run) => run(
+            who,
+            &mut Declared {
+                tx,
+                queries: declaration.queries(),
+            },
+            body,
+        ),
     }
 }
 

@@ -3,7 +3,11 @@ use openworks_core::{Fail, Tx};
 /// Every migration, by name, in the order it runs.
 pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0001_orgs", include_str!("../../../migrations/0001_orgs.sql")),
-    ("0002_members", include_str!("../../../migrations/0002_members.sql")),
+    (
+        "0002_events_seq_and_keys",
+        include_str!("../../../migrations/0002_events_seq_and_keys.sql"),
+    ),
+    ("0003_members", include_str!("../../../migrations/0003_members.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -20,6 +24,23 @@ pub mod orgs {
 
     /// Renames the caller's org.
     pub const RENAME: &str = "update works.orgs set name = $2 where org_id = $1";
+
+    /// Lists every org, for due work.
+    pub const ALL: &str = "select org_id from works.orgs";
+}
+
+/// The queries on idempotency keys.
+pub mod idempotency {
+    /// Reads the first answer to a create under its key.
+    pub const FIND: &str =
+        "select answer from works.idempotency where org_id = $1 and operation = $2 and idempotency_key = $3";
+
+    /// Keeps a create's answer under its key.
+    pub const SAVE: &str =
+        "insert into works.idempotency (org_id, operation, idempotency_key, answer, at) values ($1, $2, $3, $4, $5)";
+
+    /// Forgets an org's keys kept before a time.
+    pub const PRUNE: &str = "delete from works.idempotency where org_id = $1 and at < $2";
 }
 
 /// The queries on members.
