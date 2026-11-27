@@ -3,4 +3,3 @@ fix = "make the package the gate names publishable: a file it needs from outside
 budget_secs = 240
 run = "cargo publish --workspace --exclude openworks-pack-example --dry-run --locked && npm publish -w web --dry-run"
 leg = "surface"
-growth = 10
