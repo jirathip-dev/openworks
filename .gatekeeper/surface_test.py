@@ -53,6 +53,7 @@ class Surface(unittest.TestCase):
         write(WEB, WEB_API)
         write(EVENT, json.dumps(EVENT_SHAPE))
         git("init", "-q")
+        (REPO / ".git/info/exclude").write_text("/node_modules\n")
         git("add", "-A")
         git("commit", "-qm", "release")
         git("tag", "v0.1.0")
