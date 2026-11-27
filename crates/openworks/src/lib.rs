@@ -1,30 +1,54 @@
 use std::collections::HashMap;
 
-use openworks_core::{Change, Declaration, Fail, Handler, Hook, Id, Kind, Mount, Reach, Row, Tx, Value, Who};
+use openworks_core::{Call, Change, Declaration, Fail, Handler, Hook, Id, Kind, Mount, Reach, Row, Tx, Value, Who};
+
+pub use openworks_core::Files;
+pub use series::{Period, Series};
 
 mod due;
+mod files;
 mod orgs;
+mod series;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
 
 openworks_core::operations! {
     OrgShow => orgs::SHOW,
     OrgRename => orgs::RENAME,
+    FileAttach => files::ATTACH,
+    FileList => files::LIST,
 }
+
+const HOMES: [(&str, &str); 2] = [("/orgs", "orgs"), ("/files", "files")];
 
 impl Operation {
-    /// The core's mount: every operation under `/orgs`, reached by the caller's org.
-    pub fn mount() -> Mount {
-        Self::ALL.iter().fold(Mount::new("/orgs", "orgs"), |mount, operation| {
-            mount.operation(operation.declaration(), Reach::Org)
-        })
+    /// The path prefix and extension key the operation is mounted under.
+    pub const fn home(self) -> (&'static str, &'static str) {
+        match self {
+            Self::OrgShow | Self::OrgRename => ("/orgs", "orgs"),
+            Self::FileAttach | Self::FileList => ("/files", "files"),
+        }
     }
-}
 
-/// Files the host stores by key.
-pub trait Files {
-    fn put(&self, key: &str, bytes: &[u8]) -> Result<(), Fail>;
-    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail>;
+    /// The operation's path.
+    pub fn path(self) -> String {
+        format!("{}/{}", self.home().0, self.declaration().name())
+    }
+
+    /// The core's mounts: every operation under its prefix, reached by the caller's org.
+    pub fn mounts() -> Vec<Mount> {
+        HOMES
+            .iter()
+            .map(|&(prefix, key)| {
+                Self::ALL
+                    .iter()
+                    .filter(|operation| operation.home().0 == prefix)
+                    .fold(Mount::new(prefix, key), |mount, operation| {
+                        mount.operation(operation.declaration(), Reach::Org)
+                    })
+            })
+            .collect()
+    }
 }
 
 /// What openworks needs from the program that embeds it.
@@ -123,12 +147,12 @@ pub struct Openworks<H> {
 }
 
 impl<H: Host> Openworks<H> {
-    /// A builder with the core's mount.
+    /// A builder with the core's mounts.
     #[expect(clippy::new_ret_no_self, reason = "the builder is the way in")]
     pub fn new(host: H) -> Builder<H> {
         Builder {
             host,
-            mounts: vec![Operation::mount()],
+            mounts: Operation::mounts(),
             hooks: Vec::new(),
         }
     }
@@ -170,6 +194,7 @@ impl<H: Host> Openworks<H> {
                 openworks_db::orgs::ALL,
                 openworks_db::idempotency::FIND,
                 openworks_db::idempotency::SAVE,
+                openworks_db::series::NEXT,
             ]);
         let unscoped = openworks_db::unscoped(compiled);
         if unscoped.is_empty() { Ok(()) } else { Err(unscoped) }
@@ -223,13 +248,19 @@ impl<H: Host> Openworks<H> {
             if answered.is_some() {
                 return Ok(());
             }
-            let answer = run(
+            let call = Call {
                 who,
+                body: &request.body,
+                at: change.at,
+                id: self.host.id(),
+                files: self.host.files(),
+            };
+            let answer = run(
+                &call,
                 &mut Declared {
                     tx: &mut *tx,
                     queries: declaration.queries(),
                 },
-                &request.body,
             )?;
             if declaration.kind() != Kind::Read {
                 self.trail(tx, &change)?;

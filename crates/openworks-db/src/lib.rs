@@ -7,6 +7,10 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
         "0002_events_seq_and_keys",
         include_str!("../../../migrations/0002_events_seq_and_keys.sql"),
     ),
+    (
+        "0003_attachments_and_series",
+        include_str!("../../../migrations/0003_attachments_and_series.sql"),
+    ),
 ];
 
 /// Leaves the audit row of a write.
@@ -40,6 +44,22 @@ pub mod idempotency {
 
     /// Forgets an org's keys kept before a time.
     pub const PRUNE: &str = "delete from works.idempotency where org_id = $1 and at < $2";
+}
+
+/// The queries on attachments.
+pub mod attachments {
+    /// Records a file the host stored, under its tag.
+    pub const ADD: &str =
+        "insert into works.attachments (org_id, attachment_id, tag, name, size, at) values ($1, $2, $3, $4, $5, $6)";
+
+    /// Lists the files under a tag, oldest first.
+    pub const LIST: &str = "select attachment_id, name, size from works.attachments where org_id = $1 and tag = $2 order by at, attachment_id";
+}
+
+/// The queries on number series.
+pub mod series {
+    /// Takes the next number of a series in a period, locking its counter row until the transaction ends.
+    pub const NEXT: &str = "insert into works.series (org_id, series_key, period, last) values ($1, $2, $3, 1) on conflict (org_id, series_key, period) do update set last = works.series.last + 1 returning last";
 }
 
 /// Runs every migration's statements in the transaction; each is idempotent.
