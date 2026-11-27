@@ -2,10 +2,10 @@ use openworks_core::{Call, Declaration, Fail, Tx, Value};
 use openworks_db::orgs::{RENAME as RENAME_SQL, SHOW as SHOW_SQL};
 
 /// Reads the caller's org name.
-pub const SHOW: Declaration = openworks_core::read!("show", needs: "orgs.read", queries: [SHOW_SQL], show);
+pub const SHOW: Declaration = openworks_core::read!("show", needs: Read, queries: [SHOW_SQL], show);
 
 /// Renames the caller's org to the body.
-pub const RENAME: Declaration = openworks_core::write!("rename", needs: "orgs.write", queries: [RENAME_SQL], rename);
+pub const RENAME: Declaration = openworks_core::write!("rename", needs: Settings, queries: [RENAME_SQL], rename);
 
 fn show(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     let rows = tx.run(SHOW_SQL, &[Value::Text(call.who.org.0.clone())])?;

@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 use std::sync::{Barrier, Condvar, Mutex};
 use std::thread;
 
-use openworks::{Files, Host, Openworks, Period, Request, Response, Series};
-use openworks_core::{Change, Declaration, Fail, Hook, Id, Mount, Reach, Row, Tx, Value, Who};
-use openworks_db::{attachments, series};
+use openworks::{Caller, Files, Host, Openworks, Period, Request, Response, Series};
+use openworks_core::{Change, Declaration, Fail, Hook, Id, Mount, Reach, Role, Row, Tx, Value};
+use openworks_db::{attachments, members, series};
 
 const T0: i64 = 1_700_000_000_000;
 const JAN_2024: i64 = 1_704_067_200_000;
@@ -61,6 +61,7 @@ impl Tx for Pending<'_> {
                 self.counters.insert(row, last);
                 vec![vec![Value::Int(last)]]
             }
+            members::FIND => vec![vec![Value::Text(Role::Member.name().to_owned())]],
             attachments::ADD => {
                 self.attachments.push(params.to_vec());
                 Vec::new()
@@ -91,16 +92,16 @@ impl Files for SharedHost {
 }
 
 impl Host for &SharedHost {
-    fn who(&self, credential: &str) -> Option<Who> {
-        let (org, words): (&str, &[&str]) = match credential {
-            "member" => ("o1", &["files.read", "files.write", "jobs.write"]),
-            "other" => ("o2", &["files.read", "files.write", "jobs.write"]),
+    fn who(&self, credential: &str) -> Option<Caller> {
+        let org = match credential {
+            "member" => "o1",
+            "other" => "o2",
             _ => return None,
         };
-        Some(Who {
+        Some(Caller {
             person: Id("p1".to_owned()),
+            email: format!("{credential}@o.test"),
             org: Id(org.to_owned()),
-            words: words.iter().map(|word| (*word).to_owned()).collect(),
         })
     }
 
@@ -159,7 +160,7 @@ const JOBS: Series = Series {
     period: Period::Year,
 };
 
-const OPEN_JOB: Declaration = openworks_core::write!("open", needs: "jobs.write", queries: [JOB, series::NEXT], |call, tx| {
+const OPEN_JOB: Declaration = openworks_core::write!("open", needs: Write, queries: [JOB, series::NEXT], |call, tx| {
     let number = JOBS.next(call, tx)?;
     if call.body == "fail" {
         return Err(Fail::Invalid("refused after numbering".to_owned()));
