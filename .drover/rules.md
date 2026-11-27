@@ -1,0 +1,8 @@
+- don't write a comment beyond `// SAFETY:` over unsafe, `// TODO(#N)` and one `///` line on a public item (enforced by: gatekeeper core/arch, `[comments] policy = "strict"`)
+- don't run CI on a self-hosted runner, use `pull_request_target` or pass `secrets: inherit` (enforced by: gatekeeper core/arch bans on .github)
+- don't add a column, field or type that holds money (enforced by: gatekeeper core/arch money-word bans)
+- don't name a trade in the core, the database crate or a migration (enforced by: gatekeeper core/arch trade-word bans)
+- don't make a crate depend on a pack: the suite passes with no pack installed (enforced by: gatekeeper core/arch `openworks_pack` ban)
+- don't break the layers core <- db <- app <- server, packs over core only (enforced by: gatekeeper core/arch layers)
+- don't add a dependency without its reason in .gatekeeper/deps.toml (enforced by: gatekeeper core/deps)
+- don't stress the shared host from a lane: no `yes`, `stress` or busy loops, no N parallel copies (enforced by: hook HOST_STRESS)
