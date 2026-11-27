@@ -43,7 +43,10 @@ impl Tx for Store {
     fn run(&mut self, sql: &'static str, params: &[Value]) -> Result<Vec<Row>, Fail> {
         self.statements.push((sql, params.to_vec()));
         Ok(match sql {
-            openworks_db::orgs::SHOW => vec![vec![Value::Text("First org".to_owned())]],
+            openworks_db::orgs::LIST => vec![vec![
+                Value::Text("o1".to_owned()),
+                Value::Text("First \"org\"".to_owned()),
+            ]],
             openworks_db::orgs::ALL => vec![vec![Value::Text("o1".to_owned())]],
             idempotency::FIND => self
                 .keys
@@ -186,7 +189,7 @@ fn staffed(host: &TestHost, mount: Option<Mount>) -> Openworks<&TestHost> {
         openworks
             .set_member(Id("host".to_owned()), Id("o1".to_owned()), email, role)
             .unwrap();
-        assert_eq!(call(&openworks, "/orgs/show", email, "").status, 200);
+        assert_eq!(call(&openworks, "/orgs/list", email, "").status, 200);
     }
     host.committed.borrow_mut().statements.clear();
     *host.transactions.borrow_mut() = 0;
@@ -265,7 +268,7 @@ fn body(operation: Operation) -> &'static str {
     match operation {
         Operation::MemberSet => "new@o.test viewer",
         Operation::MemberRemove => "viewer@o.test",
-        Operation::OrgShow | Operation::OrgRename | Operation::MemberList => "New name",
+        Operation::OrgList | Operation::OrgRename | Operation::MemberList => "New name",
         Operation::FileAttach | Operation::FileList => ANY_BODY,
     }
 }
@@ -330,12 +333,12 @@ fn a_test_host_mounts_the_router_and_answers() {
     let host = TestHost::default();
     let openworks = staffed(&host, Some(notes()));
 
-    let shown = call(&openworks, "/orgs/show", "viewer@o.test", "");
+    let listed = call(&openworks, "/orgs/list", "viewer@o.test", "");
     assert_eq!(
-        shown,
+        listed,
         Response {
             status: 200,
-            body: "First org".to_owned()
+            body: r#"[{"id":"o1","name":"First \"org\"","ext":{}}]"#.to_owned()
         }
     );
     assert_eq!(
@@ -344,7 +347,7 @@ fn a_test_host_mounts_the_router_and_answers() {
     );
     assert_eq!(call(&openworks, "/orgs/missing", OWNER, "").status, 404);
     assert_eq!(call(&openworks, "/notes/off", OWNER, "").status, 404);
-    assert_eq!(call(&openworks, "/orgs/show", "stranger", "").status, 401);
+    assert_eq!(call(&openworks, "/orgs/list", "stranger", "").status, 401);
 }
 
 #[test]
@@ -408,7 +411,7 @@ fn a_person_who_is_no_member_is_refused() {
     let host = TestHost::default();
     let openworks = staffed(&host, None);
 
-    let refused = call(&openworks, "/orgs/show", "stranger@o.test", "");
+    let refused = call(&openworks, "/orgs/list", "stranger@o.test", "");
 
     assert_eq!(
         refused,
@@ -544,7 +547,7 @@ fn a_path_is_mounted_once() {
 
     let refused = Openworks::new(&host).mount(Operation::mounts().remove(0)).build().err();
 
-    assert_eq!(refused, Some(Refused::DuplicatePath("/orgs/show".to_owned())));
+    assert_eq!(refused, Some(Refused::DuplicatePath("/orgs/list".to_owned())));
 }
 
 #[test]
@@ -653,7 +656,7 @@ fn after_commit_hooks_run_in_order_and_a_failure_is_retried() {
     let openworks = Openworks::new(&host).hook(flaky).hook(steady).build().unwrap();
 
     assert_eq!(call(&openworks, "/orgs/rename", OWNER, "New name").status, 200);
-    assert_eq!(call(&openworks, "/orgs/show", OWNER, "").status, 200);
+    assert_eq!(call(&openworks, "/orgs/list", OWNER, "").status, 200);
 
     assert_eq!(host.count(openworks_db::EVENT), 1);
     assert_eq!(
@@ -714,4 +717,25 @@ fn running_due_work_twice_does_what_once_did() {
     assert_eq!(once.len(), 1);
     assert_eq!(once[0][2], Value::Text("new".to_owned()));
     assert_eq!(host.count(idempotency::PRUNE), 2);
+}
+
+#[test]
+fn the_openapi_document_names_every_route_with_its_word_and_types_ext() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+
+    let document = openworks.openapi();
+
+    for operation in Operation::ALL {
+        let declaration = operation.declaration();
+        let path = format!(
+            r#""{}":{{"post":{{"x-needs":"{}","#,
+            operation.path(),
+            declaration.needs().name()
+        );
+        assert!(document.contains(&path), "{document}");
+    }
+    let orgs =
+        r#""orgs":{"type":"object","properties":{"id":{"type":"string"},"ext":{"type":"object","properties":{}}}}"#;
+    assert!(document.contains(orgs), "{document}");
 }

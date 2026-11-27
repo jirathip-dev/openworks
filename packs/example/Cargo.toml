@@ -8,3 +8,10 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+openworks-core = { path = "../../crates/openworks-core" }
+
+[dev-dependencies]
+openworks = { path = "../../crates/openworks" }
+openworks-db = { path = "../../crates/openworks-db" }

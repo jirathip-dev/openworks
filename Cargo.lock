@@ -24,6 +24,11 @@ dependencies = [
 [[package]]
 name = "openworks-pack-example"
 version = "0.1.0"
+dependencies = [
+ "openworks",
+ "openworks-core",
+ "openworks-db",
+]
 
 [[package]]
 name = "openworks-server"

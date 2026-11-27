@@ -96,6 +96,61 @@ pub enum Value {
 /// One row a query returns.
 pub type Row = Vec<Value>;
 
+/// The type of a field a record or an extension carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Type {
+    Int,
+    Text,
+}
+
+/// One record a list read returns: its id and its named fields.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Record {
+    pub id: Id,
+    pub fields: Vec<(&'static str, Value)>,
+}
+
+/// The body of a list read: the records of one page.
+pub type Lister = fn(&Who, &mut dyn Tx, &str) -> Result<Vec<Record>, Fail>;
+
+/// The body of an extension: its values for each record id it knows, in its field order.
+pub type Extender = fn(&Who, &mut dyn Tx, &[Id]) -> Result<Vec<(Id, Vec<Value>)>, Fail>;
+
+/// Fields a pack adds to every record of one kind, read as `ext.<key>` in the read's transaction.
+#[derive(Clone, Copy)]
+pub struct Extension {
+    pub record: &'static str,
+    pub key: &'static str,
+    pub fields: &'static [(&'static str, Type)],
+    pub queries: &'static [&'static str],
+    pub extend: Extender,
+}
+
+/// A kind of approval a pack asks for, and the word an approver needs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Approval {
+    pub key: &'static str,
+    pub needs: Word,
+}
+
+/// A print template a pack brings for one record kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Print {
+    pub key: &'static str,
+    pub record: &'static str,
+    pub template: &'static str,
+}
+
+/// What a pack bundles: extensions, hooks, approval kinds, routes and prints.
+#[derive(Default)]
+pub struct Pack {
+    pub extensions: Vec<&'static Extension>,
+    pub hooks: Vec<Box<dyn Hook>>,
+    pub approvals: Vec<Approval>,
+    pub mounts: Vec<Mount>,
+    pub prints: Vec<Print>,
+}
+
 /// Why an operation did not complete.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fail {
@@ -153,6 +208,7 @@ pub enum Kind {
 #[derive(Clone, Copy)]
 pub enum Handler {
     Store(fn(&Call, &mut dyn Tx) -> Result<String, Fail>),
+    List(&'static str, Lister),
     Closed(fn(&Who, &str) -> Result<String, Fail>),
 }
 
@@ -180,6 +236,23 @@ impl Declaration {
             needs,
             queries,
             handler: Handler::Store(handler),
+        }
+    }
+
+    /// A list read: returns records of one kind, each with every extension on that kind under `ext`.
+    pub const fn list(
+        name: &'static str,
+        needs: Word,
+        record: &'static str,
+        queries: &'static [&'static str],
+        handler: Lister,
+    ) -> Self {
+        Self {
+            name,
+            kind: Kind::Read,
+            needs,
+            queries,
+            handler: Handler::List(record, handler),
         }
     }
 
@@ -256,6 +329,13 @@ impl Declaration {
 macro_rules! read {
     ($name:literal, needs: $word:ident, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
         $crate::Declaration::read($name, $crate::Word::$word, &[$($query),*], $handler)
+    };
+}
+
+#[macro_export]
+macro_rules! list {
+    ($name:literal, needs: $word:ident, record: $record:literal, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
+        $crate::Declaration::list($name, $crate::Word::$word, $record, &[$($query),*], $handler)
     };
 }
 
