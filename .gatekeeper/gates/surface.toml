@@ -1,0 +1,5 @@
+about = "one version for the crates and web/package.json; the public surface (Rust items, web's declarations, contract/*.json) keeps every item of the last v* release unless the version breaks"
+fix = "put back the item the gate names, or bump the version in Cargo.toml and web/package.json to the next breaking release"
+budget_secs = 180
+run = "python3 .gatekeeper/surface_test.py && python3 .gatekeeper/surface.py check"
+leg = "surface"
