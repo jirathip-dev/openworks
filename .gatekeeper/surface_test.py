@@ -49,7 +49,8 @@ class Surface(unittest.TestCase):
                 (REPO / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / name, REPO / name)
         (REPO / "node_modules").symlink_to(ROOT / "node_modules")
-        write(LIB, RUST_API)
+        self.core = (REPO / LIB).read_text()
+        write(LIB, self.core + RUST_API)
         write(WEB, WEB_API)
         write(EVENT, json.dumps(EVENT_SHAPE))
         git("init", "-q")
@@ -59,11 +60,11 @@ class Surface(unittest.TestCase):
         git("tag", "v0.1.0")
 
     def test_unchanged_and_added_surface_passes(self):
-        write(LIB, RUST_API + "pub fn close(job: Job) -> u64 { job.id }\n")
+        write(LIB, self.core + RUST_API + "pub fn close(job: Job) -> u64 { job.id }\n")
         self.assertEqual(surface(), (0, "public surface keeps everything v0.1.0 has\n"))
 
     def test_breaking_changes_fail_until_the_version_breaks(self):
-        write(LIB, "pub struct Job { pub id: u32 }\n")
+        write(LIB, self.core + "pub struct Job { pub id: u32 }\n")
         write(WEB, WEB_API.replace("title", "heading"))
         write(EVENT, json.dumps({"type": "object", "properties": {}}))
         code, out = surface()
