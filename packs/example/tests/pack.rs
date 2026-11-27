@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 
-use openworks::{Files, Host, Openworks, Request, Response};
-use openworks_core::{Approval, Fail, Id, Row, Tx, Value, Who, Word};
+use openworks::{Caller, Files, Host, Openworks, Request, Response};
+use openworks_core::{Approval, Fail, Id, Row, Tx, Value, Word};
 use openworks_pack_example::{CHANGES, LONGEST, pack};
 
 #[derive(Default)]
@@ -23,6 +23,7 @@ impl Tx for Store<'_> {
             openworks_db::orgs::LIST => (1..=self.page)
                 .map(|n| vec![Value::Text(format!("o{n}")), Value::Text(format!("Org {n}"))])
                 .collect(),
+            openworks_db::members::FIND => vec![vec![Value::Text("owner".to_owned())]],
             CHANGES => vec![vec![Value::Text("o1".to_owned()), Value::Int(3)]],
             _ => Vec::new(),
         })
@@ -41,11 +42,11 @@ impl Files for NoFiles {
 }
 
 impl Host for &PackHost {
-    fn who(&self, credential: &str) -> Option<Who> {
-        (credential == "member").then(|| Who {
+    fn who(&self, credential: &str) -> Option<Caller> {
+        (credential == "member").then(|| Caller {
             person: Id("p1".to_owned()),
+            email: "p1@o.test".to_owned(),
             org: Id("o1".to_owned()),
-            words: ["orgs.read", "orgs.write", "example.read"].map(str::to_owned).to_vec(),
         })
     }
 
@@ -135,7 +136,7 @@ fn the_openapi_document_types_the_extension() {
     let ext = r#""ext":{"type":"object","properties":{"example":{"type":["object","null"],"properties":{"changes":{"type":"integer"}}}}}"#;
     assert!(document.contains(ext), "{document}");
     assert!(
-        document.contains(r#""/example/whoami":{"post":{"x-needs":"example.read","#),
+        document.contains(r#""/example/whoami":{"post":{"x-needs":"read","#),
         "{document}"
     );
 }
@@ -156,7 +157,7 @@ fn the_pack_brings_its_route_approval_kind_and_print() {
         openworks.approvals(),
         [Approval {
             key: "example.handover",
-            needs: Word("example.approve"),
+            needs: Word::Approve,
         }]
     );
     let prints: Vec<_> = openworks

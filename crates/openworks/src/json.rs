@@ -44,7 +44,7 @@ pub(crate) fn openapi(routes: &HashMap<String, Route>, extensions: &[&'static Ex
     let paths: BTreeMap<&str, String> = routes
         .iter()
         .map(|(path, route)| {
-            let needs = text(route.declaration.needs().0);
+            let needs = text(route.declaration.needs().name());
             let ok = match route.declaration.handler() {
                 Handler::List(record, _) => {
                     records.insert(record);

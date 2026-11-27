@@ -14,7 +14,7 @@ pub const EXTENSION: Extension = Extension {
 
 /// Answers who is calling, under `/example/whoami`.
 pub const WHOAMI: openworks_core::Declaration =
-    openworks_core::closed!("whoami", needs: "example.read", |who, _| Ok(who.person.0.clone()));
+    openworks_core::closed!("whoami", needs: Read, |who, _| Ok(who.person.0.clone()));
 
 /// Refuses a change whose body is longer than this many bytes.
 pub const LONGEST: usize = 4096;
@@ -26,7 +26,7 @@ pub fn pack() -> Pack {
         hooks: vec![Box::new(Bounded)],
         approvals: vec![Approval {
             key: "example.handover",
-            needs: Word("example.approve"),
+            needs: Word::Approve,
         }],
         mounts: vec![Mount::new("/example", "example").operation(&WHOAMI, Reach::Org)],
         prints: vec![Print {

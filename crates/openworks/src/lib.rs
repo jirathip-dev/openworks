@@ -1,39 +1,77 @@
 use std::collections::HashMap;
 
 use openworks_core::{
-    Approval, Change, Declaration, Extension, Fail, Handler, Hook, Id, Kind, Lister, Mount, Pack, Print, Reach, Row,
-    Tx, Value, Who,
+    Approval, Call, Change, Declaration, Extension, Fail, Handler, Hook, Id, Kind, Mount, Pack, Print, Reach, Role,
+    Row, Tx, Value, Who,
 };
 
+pub use openworks_core::Files;
+pub use series::{Period, Series};
+
 mod due;
+mod files;
 mod json;
+mod members;
 mod orgs;
+mod series;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
 
 openworks_core::operations! {
     OrgList => orgs::LIST,
     OrgRename => orgs::RENAME,
+    MemberList => members::LIST,
+    MemberSet => members::SET,
+    MemberRemove => members::REMOVE,
+    FileAttach => files::ATTACH,
+    FileList => files::LIST,
 }
 
+const KEY: &str = "orgs";
+
+const HOMES: [(&str, &str); 2] = [("/orgs", KEY), ("/files", "files")];
+
 impl Operation {
-    /// The core's mount: every operation under `/orgs`, reached by the caller's org.
-    pub fn mount() -> Mount {
-        Self::ALL.iter().fold(Mount::new("/orgs", "orgs"), |mount, operation| {
-            mount.operation(operation.declaration(), Reach::Org)
-        })
+    /// The path prefix and extension key the operation is mounted under.
+    pub const fn home(self) -> (&'static str, &'static str) {
+        match self {
+            Self::OrgList | Self::OrgRename | Self::MemberList | Self::MemberSet | Self::MemberRemove => ("/orgs", KEY),
+            Self::FileAttach | Self::FileList => ("/files", "files"),
+        }
+    }
+
+    /// The operation's path.
+    pub fn path(self) -> String {
+        format!("{}/{}", self.home().0, self.declaration().name())
+    }
+
+    /// The core's mounts: every operation under its prefix, reached by the caller's org.
+    pub fn mounts() -> Vec<Mount> {
+        HOMES
+            .iter()
+            .map(|&(prefix, key)| {
+                Self::ALL
+                    .iter()
+                    .filter(|operation| operation.home().0 == prefix)
+                    .fold(Mount::new(prefix, key), |mount, operation| {
+                        mount.operation(operation.declaration(), Reach::Org)
+                    })
+            })
+            .collect()
     }
 }
 
-/// Files the host stores by key.
-pub trait Files {
-    fn put(&self, key: &str, bytes: &[u8]) -> Result<(), Fail>;
-    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail>;
+/// The person a credential signs in, by the host's id and email, and the org they act for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Caller {
+    pub person: Id,
+    pub email: String,
+    pub org: Id,
 }
 
 /// What openworks needs from the program that embeds it.
 pub trait Host {
-    fn who(&self, credential: &str) -> Option<Who>;
+    fn who(&self, credential: &str) -> Option<Caller>;
     fn transact(&self, work: &mut dyn FnMut(&mut dyn Tx) -> Result<(), Fail>) -> Result<(), Fail>;
     fn id(&self) -> Id;
     fn now(&self) -> i64;
@@ -147,12 +185,12 @@ pub struct Openworks<H> {
 }
 
 impl<H: Host> Openworks<H> {
-    /// A builder with the core's mount.
+    /// A builder with the core's mounts.
     #[expect(clippy::new_ret_no_self, reason = "the builder is the way in")]
     pub fn new(host: H) -> Builder<H> {
         Builder {
             host,
-            mounts: vec![Operation::mount()],
+            mounts: Operation::mounts(),
             hooks: Vec::new(),
             extensions: Vec::new(),
             approvals: Vec::new(),
@@ -217,12 +255,15 @@ impl<H: Host> Openworks<H> {
                 openworks_db::orgs::ALL,
                 openworks_db::idempotency::FIND,
                 openworks_db::idempotency::SAVE,
+                openworks_db::members::FIND,
+                openworks_db::members::TIE,
+                openworks_db::series::NEXT,
             ]);
         let unscoped = openworks_db::unscoped(compiled);
         if unscoped.is_empty() { Ok(()) } else { Err(unscoped) }
     }
 
-    /// Answers a request: signs the caller in, checks reach and the needed word, runs the operation.
+    /// Answers a request: signs the caller in as a member, checks reach and the needed word, runs the operation.
     pub fn handle(&self, request: &Request) -> Response {
         let Some(route) = self.routes.get(&request.path) else {
             return answer(404, "no such operation");
@@ -230,56 +271,105 @@ impl<H: Host> Openworks<H> {
         if route.reach == Reach::Off {
             return answer(404, "no such operation");
         }
-        let Some(who) = self.host.who(&request.credential) else {
+        let Some(caller) = self.host.who(&request.credential) else {
             return answer(401, "sign in");
         };
-        if !who.holds(route.declaration.needs()) {
-            return answer(403, route.declaration.needs().0);
-        }
-        match self.call(*route, &who, request) {
+        match self.call(
+            *route,
+            &|tx| self.sign_in(tx, &caller),
+            &request.body,
+            request.idempotency_key.as_deref(),
+        ) {
             Ok(body) => Response { status: 200, body },
             Err(fail) => answer(status(&fail), &fail.to_string()),
         }
     }
 
-    fn call(&self, route: Route, who: &Who, request: &Request) -> Result<String, Fail> {
+    /// Adds a member to an org by email, or changes their role, on the host's word; `by` is who made the change.
+    pub fn set_member(&self, by: Id, org: Id, email: &str, role: Role) -> Result<String, Fail> {
+        let who = Who {
+            person: by,
+            org,
+            role: Role::Owner,
+        };
+        let route = Route {
+            declaration: &members::SET,
+            reach: Reach::Org,
+            key: KEY,
+        };
+        self.call(route, &|_| Ok(who.clone()), &format!("{email} {}", role.name()), None)
+    }
+
+    fn sign_in(&self, tx: &mut dyn Tx, caller: &Caller) -> Result<Who, Fail> {
+        let org = Value::Text(caller.org.0.clone());
+        let person = Value::Text(caller.person.0.clone());
+        let mut rows = tx.run(openworks_db::members::FIND, &[org.clone(), person.clone()])?;
+        let tied = rows.is_empty();
+        if tied {
+            let email = members::address(&caller.email).map_err(|_| Fail::NotMember)?;
+            rows = tx.run(openworks_db::members::TIE, &[org, person, Value::Text(email)])?;
+        }
+        let role = match rows.first().map(Vec::as_slice) {
+            None => return Err(Fail::NotMember),
+            Some([Value::Text(role)]) => Role::named(role),
+            Some(_) => None,
+        };
+        let who = Who {
+            person: caller.person.clone(),
+            org: caller.org.clone(),
+            role: role.ok_or_else(|| Fail::Store("a member row holds no role".to_owned()))?,
+        };
+        if tied {
+            let change = Change {
+                org: who.org.clone(),
+                person: who.person.clone(),
+                operation: format!("{KEY}.join"),
+                body: caller.email.clone(),
+                at: self.host.now(),
+            };
+            self.trail(tx, &change)?;
+        }
+        Ok(who)
+    }
+
+    fn call(
+        &self,
+        route: Route,
+        sign: &dyn Fn(&mut dyn Tx) -> Result<Who, Fail>,
+        body: &str,
+        key: Option<&str>,
+    ) -> Result<String, Fail> {
         let declaration = route.declaration;
-        let run = match declaration.handler() {
-            Handler::Closed(run) => return run(who, &request.body),
-            Handler::List(record, run) => return self.list(declaration, record, run, who, &request.body),
-            Handler::Store(run) => run,
-        };
-        let key = match (declaration.kind(), request.idempotency_key.as_deref()) {
-            (Kind::Create, None | Some("")) => {
-                return Err(Fail::Invalid("a create needs an Idempotency-Key".to_owned()));
-            }
-            (Kind::Create, key) => key,
-            _ => None,
-        };
-        let change = Change {
-            org: who.org.clone(),
-            person: who.person.clone(),
-            operation: format!("{}.{}", route.key, declaration.name()),
-            body: request.body.clone(),
-            at: self.host.now(),
-        };
+        let key = create_key(declaration.kind(), key)?;
+        let changes = matches!(declaration.kind(), Kind::Write | Kind::Create);
         let mut answered = None;
-        let mut changed = false;
+        let mut committed = None;
         self.host.transact(&mut |tx| {
-            changed = false;
+            committed = None;
+            let who = sign(tx)?;
+            if who.role.grants(declaration.needs()).is_none() {
+                return Err(Fail::Needs(declaration.needs()));
+            }
+            let change = Change {
+                org: who.org.clone(),
+                person: who.person.clone(),
+                operation: format!("{}.{}", route.key, declaration.name()),
+                body: body.to_owned(),
+                at: self.host.now(),
+            };
             answered = key.map(|key| replay(tx, &change, key)).transpose()?.flatten();
             if answered.is_some() {
                 return Ok(());
             }
-            let answer = run(
-                who,
-                &mut Declared {
-                    tx: &mut *tx,
-                    queries: declaration.queries(),
-                },
-                &request.body,
-            )?;
-            if declaration.kind() != Kind::Read {
+            let call = Call {
+                who: &who,
+                body,
+                at: change.at,
+                id: self.host.id(),
+                files: self.host.files(),
+            };
+            let answer = self.run(declaration, &call, tx)?;
+            if changes {
                 self.trail(tx, &change)?;
                 if let Some(key) = key {
                     keep(tx, &change, key, &answer)?;
@@ -287,47 +377,36 @@ impl<H: Host> Openworks<H> {
                 for hook in &self.hooks {
                     hook.before_commit(&change)?;
                 }
-                changed = true;
+                committed = Some(change);
             }
             answered = Some(answer);
             Ok(())
         })?;
-        if changed {
+        if let Some(change) = committed {
             self.after_commit(&change);
         }
         answered.ok_or_else(|| Fail::Store("the transaction ran no work".to_owned()))
     }
 
-    fn list(
-        &self,
-        declaration: &Declaration,
-        record: &'static str,
-        run: Lister,
-        who: &Who,
-        body: &str,
-    ) -> Result<String, Fail> {
-        let extensions: Vec<_> = self
-            .extensions
-            .iter()
-            .filter(|extension| extension.record == record)
-            .collect();
-        let mut answered = String::new();
-        self.host.transact(&mut |tx| {
-            let queries = declaration.queries();
-            let records = run(who, &mut Declared { tx: &mut *tx, queries }, body)?;
-            let ids: Vec<Id> = records.iter().map(|record| record.id.clone()).collect();
-            let mut extended = Vec::with_capacity(extensions.len());
-            for extension in &extensions {
-                let queries = extension.queries;
-                extended.push((
-                    **extension,
-                    (extension.extend)(who, &mut Declared { tx: &mut *tx, queries }, &ids)?,
-                ));
+    fn run(&self, declaration: &Declaration, call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
+        let queries = declaration.queries();
+        match declaration.handler() {
+            Handler::Closed(run) => run(call.who, call.body),
+            Handler::Store(run) => run(call, &mut Declared { tx, queries }),
+            Handler::List(record, run) => {
+                let records = run(call.who, &mut Declared { tx: &mut *tx, queries }, call.body)?;
+                let ids: Vec<Id> = records.iter().map(|record| record.id.clone()).collect();
+                let mut extended = Vec::new();
+                for extension in self.extensions.iter().filter(|extension| extension.record == record) {
+                    let queries = extension.queries;
+                    extended.push((
+                        *extension,
+                        (extension.extend)(call.who, &mut Declared { tx: &mut *tx, queries }, &ids)?,
+                    ));
+                }
+                Ok(json::page(&records, &extended))
             }
-            answered = json::page(&records, &extended);
-            Ok(())
-        })?;
-        Ok(answered)
+        }
     }
 
     fn after_commit(&self, change: &Change) {
@@ -365,6 +444,14 @@ impl<H: Host> Openworks<H> {
             ],
         )?;
         Ok(())
+    }
+}
+
+fn create_key(kind: Kind, key: Option<&str>) -> Result<Option<&str>, Fail> {
+    match (kind, key) {
+        (Kind::Create, None | Some("")) => Err(Fail::Invalid("a create needs an Idempotency-Key".to_owned())),
+        (Kind::Create, key) => Ok(key),
+        _ => Ok(None),
     }
 }
 
@@ -414,6 +501,7 @@ impl Tx for Declared<'_> {
 fn status(fail: &Fail) -> u16 {
     match fail {
         Fail::NotFound => 404,
+        Fail::NotMember | Fail::Needs(_) => 403,
         Fail::Invalid(_) => 400,
         Fail::Undeclared(_) | Fail::Store(_) => 500,
     }

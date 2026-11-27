@@ -4,23 +4,85 @@ use std::fmt;
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Id(pub String);
 
-/// A permission word a person holds and an operation needs.
+/// One of the five words an operation needs and a role grants.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Word(pub &'static str);
+pub enum Word {
+    Read,
+    Write,
+    Approve,
+    Members,
+    Settings,
+}
 
-/// The signed-in person, the org they act for and the words they hold.
+impl Word {
+    /// Every word.
+    pub const ALL: [Self; 5] = [Self::Read, Self::Write, Self::Approve, Self::Members, Self::Settings];
+
+    /// The word as a caller sees it.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Write => "write",
+            Self::Approve => "approve",
+            Self::Members => "members",
+            Self::Settings => "settings",
+        }
+    }
+}
+
+/// How far a granted word reaches: every record in the org, or only the person's own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Scope {
+    All,
+    Own,
+}
+
+/// A member's role in an org.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Role {
+    Owner,
+    Manager,
+    Member,
+    Viewer,
+}
+
+impl Role {
+    /// Every role.
+    pub const ALL: [Self; 4] = [Self::Owner, Self::Manager, Self::Member, Self::Viewer];
+
+    /// The role as it is stored and read.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Owner => "owner",
+            Self::Manager => "manager",
+            Self::Member => "member",
+            Self::Viewer => "viewer",
+        }
+    }
+
+    /// The role with this name.
+    pub fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|role| role.name() == name)
+    }
+
+    /// The role table: how far this role holds the word, if at all.
+    pub const fn grants(self, word: Word) -> Option<Scope> {
+        match (self, word) {
+            (Self::Owner, _)
+            | (Self::Manager, Word::Read | Word::Write | Word::Approve)
+            | (Self::Member | Self::Viewer, Word::Read) => Some(Scope::All),
+            (Self::Member, Word::Write) => Some(Scope::Own),
+            _ => None,
+        }
+    }
+}
+
+/// The signed-in member, the org they act for and their role in it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Who {
     pub person: Id,
     pub org: Id,
-    pub words: Vec<String>,
-}
-
-impl Who {
-    /// Whether this person holds the word.
-    pub fn holds(&self, word: Word) -> bool {
-        self.words.iter().any(|held| held == word.0)
-    }
+    pub role: Role,
 }
 
 /// A value bound to a query parameter or read from a row.
@@ -93,6 +155,8 @@ pub struct Pack {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fail {
     NotFound,
+    NotMember,
+    Needs(Word),
     Invalid(String),
     Undeclared(&'static str),
     Store(String),
@@ -102,6 +166,8 @@ impl fmt::Display for Fail {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotFound => f.write_str("not found"),
+            Self::NotMember => f.write_str("not a member"),
+            Self::Needs(word) => std::write!(f, "needs {}", word.name()),
             Self::Invalid(why) => std::write!(f, "invalid: {why}"),
             Self::Undeclared(sql) => std::write!(f, "undeclared query: {sql}"),
             Self::Store(why) => std::write!(f, "store: {why}"),
@@ -112,6 +178,21 @@ impl fmt::Display for Fail {
 /// A transaction the host opens: every statement in it commits or none does.
 pub trait Tx {
     fn run(&mut self, sql: &'static str, params: &[Value]) -> Result<Vec<Row>, Fail>;
+}
+
+/// Files the host stores by key.
+pub trait Files {
+    fn put(&self, key: &str, bytes: &[u8]) -> Result<(), Fail>;
+    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail>;
+}
+
+/// What a store handler is called with: the caller, the body, the change's time, a fresh id and the host's files.
+pub struct Call<'a> {
+    pub who: &'a Who,
+    pub body: &'a str,
+    pub at: i64,
+    pub id: Id,
+    pub files: &'a dyn Files,
 }
 
 /// What an operation does to the store.
@@ -126,7 +207,7 @@ pub enum Kind {
 /// The body of an operation, by what it may touch.
 #[derive(Clone, Copy)]
 pub enum Handler {
-    Store(fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>),
+    Store(fn(&Call, &mut dyn Tx) -> Result<String, Fail>),
     List(&'static str, Lister),
     Closed(fn(&Who, &str) -> Result<String, Fail>),
 }
@@ -147,7 +228,7 @@ impl Declaration {
         name: &'static str,
         needs: Word,
         queries: &'static [&'static str],
-        handler: fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>,
+        handler: fn(&Call, &mut dyn Tx) -> Result<String, Fail>,
     ) -> Self {
         Self {
             name,
@@ -180,7 +261,7 @@ impl Declaration {
         name: &'static str,
         needs: Word,
         queries: &'static [&'static str],
-        handler: fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>,
+        handler: fn(&Call, &mut dyn Tx) -> Result<String, Fail>,
     ) -> Self {
         Self {
             name,
@@ -196,7 +277,7 @@ impl Declaration {
         name: &'static str,
         needs: Word,
         queries: &'static [&'static str],
-        handler: fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>,
+        handler: fn(&Call, &mut dyn Tx) -> Result<String, Fail>,
     ) -> Self {
         Self {
             name,
@@ -246,36 +327,36 @@ impl Declaration {
 
 #[macro_export]
 macro_rules! read {
-    ($name:literal, needs: $word:literal, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
-        $crate::Declaration::read($name, $crate::Word($word), &[$($query),*], $handler)
+    ($name:literal, needs: $word:ident, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
+        $crate::Declaration::read($name, $crate::Word::$word, &[$($query),*], $handler)
     };
 }
 
 #[macro_export]
 macro_rules! list {
-    ($name:literal, needs: $word:literal, record: $record:literal, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
-        $crate::Declaration::list($name, $crate::Word($word), $record, &[$($query),*], $handler)
+    ($name:literal, needs: $word:ident, record: $record:literal, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
+        $crate::Declaration::list($name, $crate::Word::$word, $record, &[$($query),*], $handler)
     };
 }
 
 #[macro_export]
 macro_rules! write {
-    ($name:literal, needs: $word:literal, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
-        $crate::Declaration::write($name, $crate::Word($word), &[$($query),*], $handler)
+    ($name:literal, needs: $word:ident, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
+        $crate::Declaration::write($name, $crate::Word::$word, &[$($query),*], $handler)
     };
 }
 
 #[macro_export]
 macro_rules! create {
-    ($name:literal, needs: $word:literal, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
-        $crate::Declaration::create($name, $crate::Word($word), &[$($query),*], $handler)
+    ($name:literal, needs: $word:ident, queries: [$($query:expr),* $(,)?], $handler:expr $(,)?) => {
+        $crate::Declaration::create($name, $crate::Word::$word, &[$($query),*], $handler)
     };
 }
 
 #[macro_export]
 macro_rules! closed {
-    ($name:literal, needs: $word:literal, $handler:expr $(,)?) => {
-        $crate::Declaration::closed($name, $crate::Word($word), $handler)
+    ($name:literal, needs: $word:ident, $handler:expr $(,)?) => {
+        $crate::Declaration::closed($name, $crate::Word::$word, $handler)
     };
 }
 

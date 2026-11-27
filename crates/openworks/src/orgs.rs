@@ -1,12 +1,11 @@
-use openworks_core::{Declaration, Fail, Id, Record, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Id, Record, Tx, Value, Who};
 use openworks_db::orgs::{LIST as LIST_SQL, RENAME as RENAME_SQL};
 
 /// Lists the caller's orgs as records of kind `orgs`.
-pub const LIST: Declaration =
-    openworks_core::list!("list", needs: "orgs.read", record: "orgs", queries: [LIST_SQL], list);
+pub const LIST: Declaration = openworks_core::list!("list", needs: Read, record: "orgs", queries: [LIST_SQL], list);
 
 /// Renames the caller's org to the body.
-pub const RENAME: Declaration = openworks_core::write!("rename", needs: "orgs.write", queries: [RENAME_SQL], rename);
+pub const RENAME: Declaration = openworks_core::write!("rename", needs: Settings, queries: [RENAME_SQL], rename);
 
 fn list(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<Vec<Record>, Fail> {
     let rows = tx.run(LIST_SQL, &[Value::Text(who.org.0.clone())])?;
@@ -21,14 +20,14 @@ fn list(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<Vec<Record>, Fail> {
         .collect()
 }
 
-fn rename(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<String, Fail> {
-    let name = body.trim();
+fn rename(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
+    let name = call.body.trim();
     if name.is_empty() {
         return Err(Fail::Invalid("an org needs a name".to_owned()));
     }
     tx.run(
         RENAME_SQL,
-        &[Value::Text(who.org.0.clone()), Value::Text(name.to_owned())],
+        &[Value::Text(call.who.org.0.clone()), Value::Text(name.to_owned())],
     )?;
     Ok(name.to_owned())
 }

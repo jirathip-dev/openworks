@@ -8,7 +8,7 @@ fn whoami(who: &Who, _: &str) -> Result<String, Fail> {
 }
 
 const WHOAMI: openworks_core::Declaration =
-    openworks_core::closed!("whoami", needs: "orgs.read", whoami);
+    openworks_core::closed!("whoami", needs: Read, whoami);
 
 let _ = Mount::new("/x", "x").operation(&WHOAMI, Reach::Org);
 ```
