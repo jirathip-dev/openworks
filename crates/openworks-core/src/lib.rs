@@ -125,6 +125,21 @@ pub trait Tx {
     fn run(&mut self, sql: &'static str, params: &[Value]) -> Result<Vec<Row>, Fail>;
 }
 
+/// Files the host stores by key.
+pub trait Files {
+    fn put(&self, key: &str, bytes: &[u8]) -> Result<(), Fail>;
+    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail>;
+}
+
+/// What a store handler is called with: the caller, the body, the change's time, a fresh id and the host's files.
+pub struct Call<'a> {
+    pub who: &'a Who,
+    pub body: &'a str,
+    pub at: i64,
+    pub id: Id,
+    pub files: &'a dyn Files,
+}
+
 /// What an operation does to the store.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -137,7 +152,7 @@ pub enum Kind {
 /// The body of an operation, by what it may touch.
 #[derive(Clone, Copy)]
 pub enum Handler {
-    Store(fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>),
+    Store(fn(&Call, &mut dyn Tx) -> Result<String, Fail>),
     Closed(fn(&Who, &str) -> Result<String, Fail>),
 }
 
@@ -157,7 +172,7 @@ impl Declaration {
         name: &'static str,
         needs: Word,
         queries: &'static [&'static str],
-        handler: fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>,
+        handler: fn(&Call, &mut dyn Tx) -> Result<String, Fail>,
     ) -> Self {
         Self {
             name,
@@ -173,7 +188,7 @@ impl Declaration {
         name: &'static str,
         needs: Word,
         queries: &'static [&'static str],
-        handler: fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>,
+        handler: fn(&Call, &mut dyn Tx) -> Result<String, Fail>,
     ) -> Self {
         Self {
             name,
@@ -189,7 +204,7 @@ impl Declaration {
         name: &'static str,
         needs: Word,
         queries: &'static [&'static str],
-        handler: fn(&Who, &mut dyn Tx, &str) -> Result<String, Fail>,
+        handler: fn(&Call, &mut dyn Tx) -> Result<String, Fail>,
     ) -> Self {
         Self {
             name,

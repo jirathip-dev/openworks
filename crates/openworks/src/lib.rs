@@ -1,10 +1,17 @@
 use std::collections::HashMap;
 
-use openworks_core::{Change, Declaration, Fail, Handler, Hook, Id, Kind, Mount, Reach, Role, Row, Tx, Value, Who};
+use openworks_core::{
+    Call, Change, Declaration, Fail, Handler, Hook, Id, Kind, Mount, Reach, Role, Row, Tx, Value, Who,
+};
+
+pub use openworks_core::Files;
+pub use series::{Period, Series};
 
 mod due;
+mod files;
 mod members;
 mod orgs;
+mod series;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
 
@@ -14,23 +21,42 @@ openworks_core::operations! {
     MemberList => members::LIST,
     MemberSet => members::SET,
     MemberRemove => members::REMOVE,
+    FileAttach => files::ATTACH,
+    FileList => files::LIST,
 }
 
 const KEY: &str = "orgs";
 
-impl Operation {
-    /// The core's mount: every operation under `/orgs`, reached by the caller's org.
-    pub fn mount() -> Mount {
-        Self::ALL.iter().fold(Mount::new("/orgs", KEY), |mount, operation| {
-            mount.operation(operation.declaration(), Reach::Org)
-        })
-    }
-}
+const HOMES: [(&str, &str); 2] = [("/orgs", KEY), ("/files", "files")];
 
-/// Files the host stores by key.
-pub trait Files {
-    fn put(&self, key: &str, bytes: &[u8]) -> Result<(), Fail>;
-    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail>;
+impl Operation {
+    /// The path prefix and extension key the operation is mounted under.
+    pub const fn home(self) -> (&'static str, &'static str) {
+        match self {
+            Self::OrgShow | Self::OrgRename | Self::MemberList | Self::MemberSet | Self::MemberRemove => ("/orgs", KEY),
+            Self::FileAttach | Self::FileList => ("/files", "files"),
+        }
+    }
+
+    /// The operation's path.
+    pub fn path(self) -> String {
+        format!("{}/{}", self.home().0, self.declaration().name())
+    }
+
+    /// The core's mounts: every operation under its prefix, reached by the caller's org.
+    pub fn mounts() -> Vec<Mount> {
+        HOMES
+            .iter()
+            .map(|&(prefix, key)| {
+                Self::ALL
+                    .iter()
+                    .filter(|operation| operation.home().0 == prefix)
+                    .fold(Mount::new(prefix, key), |mount, operation| {
+                        mount.operation(operation.declaration(), Reach::Org)
+                    })
+            })
+            .collect()
+    }
 }
 
 /// The person a credential signs in, by the host's id and email, and the org they act for.
@@ -137,12 +163,12 @@ pub struct Openworks<H> {
 }
 
 impl<H: Host> Openworks<H> {
-    /// A builder with the core's mount.
+    /// A builder with the core's mounts.
     #[expect(clippy::new_ret_no_self, reason = "the builder is the way in")]
     pub fn new(host: H) -> Builder<H> {
         Builder {
             host,
-            mounts: vec![Operation::mount()],
+            mounts: Operation::mounts(),
             hooks: Vec::new(),
         }
     }
@@ -186,6 +212,7 @@ impl<H: Host> Openworks<H> {
                 openworks_db::idempotency::SAVE,
                 openworks_db::members::FIND,
                 openworks_db::members::TIE,
+                openworks_db::series::NEXT,
             ]);
         let unscoped = openworks_db::unscoped(compiled);
         if unscoped.is_empty() { Ok(()) } else { Err(unscoped) }
@@ -268,13 +295,7 @@ impl<H: Host> Openworks<H> {
         key: Option<&str>,
     ) -> Result<String, Fail> {
         let declaration = route.declaration;
-        let key = match (declaration.kind(), key) {
-            (Kind::Create, None | Some("")) => {
-                return Err(Fail::Invalid("a create needs an Idempotency-Key".to_owned()));
-            }
-            (Kind::Create, key) => key,
-            _ => None,
-        };
+        let key = create_key(declaration.kind(), key)?;
         let changes = matches!(declaration.kind(), Kind::Write | Kind::Create);
         let mut answered = None;
         let mut committed = None;
@@ -295,7 +316,14 @@ impl<H: Host> Openworks<H> {
             if answered.is_some() {
                 return Ok(());
             }
-            let answer = run(declaration, &who, tx, body)?;
+            let call = Call {
+                who: &who,
+                body,
+                at: change.at,
+                id: self.host.id(),
+                files: self.host.files(),
+            };
+            let answer = run(declaration, &call, tx)?;
             if changes {
                 self.trail(tx, &change)?;
                 if let Some(key) = key {
@@ -353,6 +381,14 @@ impl<H: Host> Openworks<H> {
     }
 }
 
+fn create_key(kind: Kind, key: Option<&str>) -> Result<Option<&str>, Fail> {
+    match (kind, key) {
+        (Kind::Create, None | Some("")) => Err(Fail::Invalid("a create needs an Idempotency-Key".to_owned())),
+        (Kind::Create, key) => Ok(key),
+        _ => Ok(None),
+    }
+}
+
 fn replay(tx: &mut dyn Tx, change: &Change, key: &str) -> Result<Option<String>, Fail> {
     let rows = tx.run(
         openworks_db::idempotency::FIND,
@@ -382,16 +418,15 @@ fn keep(tx: &mut dyn Tx, change: &Change, key: &str, answer: &str) -> Result<(),
     Ok(())
 }
 
-fn run(declaration: &Declaration, who: &Who, tx: &mut dyn Tx, body: &str) -> Result<String, Fail> {
+fn run(declaration: &Declaration, call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     match declaration.handler() {
-        Handler::Closed(run) => run(who, body),
+        Handler::Closed(run) => run(call.who, call.body),
         Handler::Store(run) => run(
-            who,
+            call,
             &mut Declared {
                 tx,
                 queries: declaration.queries(),
             },
-            body,
         ),
     }
 }

@@ -221,16 +221,18 @@ fn send(openworks: &Openworks<&TestHost>, path: &str, credential: &str, key: Opt
     })
 }
 
+const ANY_BODY: &str = "job-1\nplan.txt\nfirst floor";
+
 const NOTE: &str = "insert into works.notes (org_id, body) values ($1, $2)";
 const STRAY: &str = "delete from works.notes where org_id = $1";
 
-const ADD_NOTE: Declaration = openworks_core::write!("add", needs: Write, queries: [NOTE], |who, tx, body| {
-    tx.run(NOTE, &[Value::Text(who.org.0.clone()), Value::Text(body.to_owned())])?;
+const ADD_NOTE: Declaration = openworks_core::write!("add", needs: Write, queries: [NOTE], |call, tx| {
+    tx.run(NOTE, &[Value::Text(call.who.org.0.clone()), Value::Text(call.body.to_owned())])?;
     Ok(String::new())
 });
 
-const STRAY_NOTE: Declaration = openworks_core::write!("stray", needs: Write, queries: [NOTE], |who, tx, _| {
-    tx.run(STRAY, &[Value::Text(who.org.0.clone())])?;
+const STRAY_NOTE: Declaration = openworks_core::write!("stray", needs: Write, queries: [NOTE], |call, tx| {
+    tx.run(STRAY, &[Value::Text(call.who.org.0.clone())])?;
     Ok(String::new())
 });
 
@@ -238,7 +240,7 @@ const UNSCOPED: Declaration = openworks_core::read!(
     "all",
     needs: Read,
     queries: ["select body from works.notes"],
-    |_, _, _| Ok(String::new())
+    |_, _| Ok(String::new())
 );
 
 const WHOAMI: Declaration = openworks_core::closed!("whoami", needs: Read, |who, _| Ok(who.person.0.clone()));
@@ -252,9 +254,9 @@ fn notes() -> Mount {
         .operation(&OPEN_NOTE, Reach::Org)
 }
 
-const OPEN_NOTE: Declaration = openworks_core::create!("open", needs: Write, queries: [NOTE], |who, tx, body| {
-    tx.run(NOTE, &[Value::Text(who.org.0.clone()), Value::Text(body.to_owned())])?;
-    Ok(format!("note {body}"))
+const OPEN_NOTE: Declaration = openworks_core::create!("open", needs: Write, queries: [NOTE], |call, tx| {
+    tx.run(NOTE, &[Value::Text(call.who.org.0.clone()), Value::Text(call.body.to_owned())])?;
+    Ok(format!("note {}", call.body))
 });
 
 const SWITCHED_OFF: Declaration = openworks_core::closed!("off", needs: Read, |_, _| Ok(String::new()));
@@ -264,6 +266,7 @@ fn body(operation: Operation) -> &'static str {
         Operation::MemberSet => "new@o.test viewer",
         Operation::MemberRemove => "viewer@o.test",
         Operation::OrgShow | Operation::OrgRename | Operation::MemberList => "New name",
+        Operation::FileAttach | Operation::FileList => ANY_BODY,
     }
 }
 
@@ -292,12 +295,12 @@ fn the_role_table_grants_every_word() {
 fn the_role_table_holds_for_every_declared_operation() {
     for operation in Operation::ALL {
         let declaration = operation.declaration();
-        let path = format!("/orgs/{}", declaration.name());
+        let path = operation.path();
         for role in Role::ALL {
             let host = TestHost::default();
             let openworks = staffed(&host, None);
 
-            let answered = call(&openworks, &path, &email(role), body(*operation));
+            let answered = send(&openworks, &path, &email(role), Some("k"), body(*operation));
 
             let expected = match role.grants(declaration.needs()) {
                 Some(_) => 200,
@@ -477,11 +480,15 @@ fn every_write_leaves_one_audit_row_and_one_event() {
         let host = TestHost::default();
         let openworks = staffed(&host, None);
         let declaration = operation.declaration();
-        let path = format!("/orgs/{}", declaration.name());
+        let path = operation.path();
 
-        assert_eq!(call(&openworks, &path, OWNER, body(*operation)).status, 200, "{path}");
+        assert_eq!(
+            send(&openworks, &path, OWNER, Some("k"), body(*operation)).status,
+            200,
+            "{path}"
+        );
 
-        let trail = usize::from(declaration.kind() == Kind::Write);
+        let trail = usize::from(declaration.kind() != Kind::Read);
         assert_eq!(host.count(openworks_db::AUDIT), trail, "{path}");
         assert_eq!(host.count(openworks_db::EVENT), trail, "{path}");
     }
@@ -535,7 +542,7 @@ fn every_compiled_query_is_scoped_by_org() {
 fn a_path_is_mounted_once() {
     let host = TestHost::default();
 
-    let refused = Openworks::new(&host).mount(Operation::mount()).build().err();
+    let refused = Openworks::new(&host).mount(Operation::mounts().remove(0)).build().err();
 
     assert_eq!(refused, Some(Refused::DuplicatePath("/orgs/show".to_owned())));
 }
@@ -549,7 +556,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 7);
+    assert_eq!(once.len(), 9);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }

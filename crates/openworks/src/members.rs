@@ -1,4 +1,4 @@
-use openworks_core::{Declaration, Fail, Role, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Role, Tx, Value, Who};
 use openworks_db::members::{HOLDING, LIST as LIST_SQL, REMOVE as REMOVE_SQL, SET as SET_SQL};
 
 /// Lists the org's members, one `email role` a line.
@@ -11,7 +11,8 @@ pub const SET: Declaration = openworks_core::write!("set-member", needs: Members
 pub const REMOVE: Declaration =
     openworks_core::write!("remove-member", needs: Members, queries: [HOLDING, REMOVE_SQL], remove);
 
-fn list(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<String, Fail> {
+fn list(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
+    let who = call.who;
     let lines = tx
         .run(LIST_SQL, &[org(who)])?
         .iter()
@@ -23,8 +24,9 @@ fn list(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<String, Fail> {
     Ok(lines.join("\n"))
 }
 
-fn set(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<String, Fail> {
-    let [email, role] = body.split_whitespace().collect::<Vec<_>>()[..] else {
+fn set(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
+    let who = call.who;
+    let [email, role] = call.body.split_whitespace().collect::<Vec<_>>()[..] else {
         return Err(Fail::Invalid("a member needs an email and a role".to_owned()));
     };
     let email = address(email)?;
@@ -41,8 +43,9 @@ fn set(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<String, Fail> {
     Ok(format!("{email} {}", role.name()))
 }
 
-fn remove(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<String, Fail> {
-    let email = address(body)?;
+fn remove(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
+    let who = call.who;
+    let email = address(call.body)?;
     keep_an_owner(who, tx, &email, Role::Viewer)?;
     tx.run(REMOVE_SQL, &[org(who), Value::Text(email.clone())])?;
     Ok(email)
