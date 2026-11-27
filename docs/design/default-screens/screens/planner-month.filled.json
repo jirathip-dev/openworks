@@ -133,8 +133,8 @@
               "label": "2"
             },
             {
-              "value": 1,
-              "label": "1"
+              "value": 0,
+              "label": "0"
             },
             {
               "value": 0,
@@ -154,8 +154,8 @@
               "label": "3"
             },
             {
-              "value": 3,
-              "label": "3"
+              "value": 2,
+              "label": "2"
             },
             {
               "value": 3,
@@ -289,7 +289,7 @@
     {
       "type": "section",
       "id": "day",
-      "header": "Wed 9 Dec · 3 jobs",
+      "header": "Wed 9 Dec · 2 jobs",
       "blocks": [
         {
           "type": "list",
@@ -313,16 +313,6 @@
               "value": "3 days",
               "tap": {
                 "open": "/jobs/1049"
-              }
-            },
-            {
-              "type": "row",
-              "id": "m3",
-              "title": "Make good, Level 2",
-              "subtitle": "Crew C",
-              "value": "2 days",
-              "tap": {
-                "open": "/jobs/1052"
               }
             }
           ]
