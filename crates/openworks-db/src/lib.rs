@@ -18,8 +18,8 @@ pub const EVENT: &str = "insert into works.events (event_id, org_id, kind, body,
 
 /// The queries on orgs.
 pub mod orgs {
-    /// Reads the caller's org name.
-    pub const SHOW: &str = "select name from works.orgs where org_id = $1";
+    /// Lists the orgs the caller reads: id and name.
+    pub const LIST: &str = "select org_id, name from works.orgs where org_id = $1 order by org_id";
 
     /// Renames the caller's org.
     pub const RENAME: &str = "update works.orgs set name = $2 where org_id = $1";

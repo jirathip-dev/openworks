@@ -28,7 +28,10 @@ impl Tx for Store {
     fn run(&mut self, sql: &'static str, params: &[Value]) -> Result<Vec<Row>, Fail> {
         self.statements.push((sql, params.to_vec()));
         Ok(match sql {
-            openworks_db::orgs::SHOW => vec![vec![Value::Text("First org".to_owned())]],
+            openworks_db::orgs::LIST => vec![vec![
+                Value::Text("o1".to_owned()),
+                Value::Text("First \"org\"".to_owned()),
+            ]],
             openworks_db::orgs::ALL => vec![vec![Value::Text("o1".to_owned())]],
             idempotency::FIND => self
                 .keys
@@ -175,18 +178,18 @@ fn a_test_host_mounts_the_router_and_answers() {
     let host = TestHost::default();
     let openworks = Openworks::new(&host).mount(notes()).build().unwrap();
 
-    let shown = call(&openworks, "/orgs/show", "member", "");
+    let listed = call(&openworks, "/orgs/list", "member", "");
     assert_eq!(
-        shown,
+        listed,
         Response {
             status: 200,
-            body: "First org".to_owned()
+            body: r#"[{"id":"o1","name":"First \"org\"","ext":{}}]"#.to_owned()
         }
     );
     assert_eq!(call(&openworks, "/notes/whoami", "member", "").body, "p1");
     assert_eq!(call(&openworks, "/orgs/missing", "member", "").status, 404);
     assert_eq!(call(&openworks, "/notes/off", "member", "").status, 404);
-    assert_eq!(call(&openworks, "/orgs/show", "stranger", "").status, 401);
+    assert_eq!(call(&openworks, "/orgs/list", "stranger", "").status, 401);
 }
 
 #[test]
@@ -284,7 +287,7 @@ fn a_path_is_mounted_once() {
 
     let refused = Openworks::new(&host).mount(Operation::mount()).build().err();
 
-    assert_eq!(refused, Some(Refused::DuplicatePath("/orgs/show".to_owned())));
+    assert_eq!(refused, Some(Refused::DuplicatePath("/orgs/list".to_owned())));
 }
 
 #[test]
@@ -383,7 +386,7 @@ fn after_commit_hooks_run_in_order_and_a_failure_is_retried() {
     let openworks = Openworks::new(&host).hook(flaky).hook(steady).build().unwrap();
 
     assert_eq!(call(&openworks, "/orgs/rename", "member", "New name").status, 200);
-    assert_eq!(call(&openworks, "/orgs/show", "member", "").status, 200);
+    assert_eq!(call(&openworks, "/orgs/list", "member", "").status, 200);
 
     assert_eq!(host.count(openworks_db::EVENT), 1);
     assert_eq!(
@@ -444,4 +447,25 @@ fn running_due_work_twice_does_what_once_did() {
     assert_eq!(once.len(), 1);
     assert_eq!(once[0][2], Value::Text("new".to_owned()));
     assert_eq!(host.count(idempotency::PRUNE), 2);
+}
+
+#[test]
+fn the_openapi_document_names_every_route_with_its_word_and_types_ext() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+
+    let document = openworks.openapi();
+
+    for operation in Operation::ALL {
+        let declaration = operation.declaration();
+        let path = format!(
+            r#""/orgs/{}":{{"post":{{"x-needs":"{}","#,
+            declaration.name(),
+            declaration.needs().0
+        );
+        assert!(document.contains(&path), "{document}");
+    }
+    let orgs =
+        r#""orgs":{"type":"object","properties":{"id":{"type":"string"},"ext":{"type":"object","properties":{}}}}"#;
+    assert!(document.contains(orgs), "{document}");
 }
