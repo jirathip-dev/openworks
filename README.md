@@ -29,6 +29,7 @@ Open field and site work: sites, projects, jobs, planner, crews, daily reports.
 | `web` | the web package |
 | `migrations` | the database migrations |
 | `templates` | the print and message templates |
+| `contract` | the OpenAPI document, each template's data shape and each event's payload, as JSON |
 
 ## Checks
 
@@ -36,6 +37,14 @@ Open field and site work: sites, projects, jobs, planner, crews, daily reports.
 layers and bans live in `.drover/arch.toml`: no self-hosted runner in a workflow, no money word in the schema or the
 code, no trade word in the core, the database crate or a migration. CI is `.github/workflows/ci.yml` alone, on
 GitHub-hosted runners, with read-only permissions; a fork's pull request gets no secret.
+
+## Releases
+
+The four crates and `openworks-web` share one version, the workspace's in `Cargo.toml`. Once `ci` is green on `main`,
+`.github/workflows/release.yml` tags `v<version>` and writes its changelog from the merged PRs' titles, unless that tag
+exists. Nothing is published to crates.io or npm: use openworks as a git dependency. The `local/surface` gate fails a
+change that drops or changes a public Rust item, a `web` declaration or a `contract` entry of the last release unless
+the version makes it a breaking release.
 
 ## Branch protection
 
