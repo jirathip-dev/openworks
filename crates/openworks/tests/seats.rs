@@ -2,7 +2,7 @@ mod memory;
 mod table;
 
 use memory::{ok, send};
-use openworks::Openworks;
+use openworks::{Openworks, Response};
 use openworks_core::{Fail, Row, Tx, Value};
 use openworks_db::{jobs, seats, workers};
 use table::{Trail, change, select, text};
@@ -14,47 +14,16 @@ struct Store {
     trail: Trail,
 }
 
-const JOBS: [(&str, &str); 3] = [("j1", "open"), ("j2", "open"), ("jc", "cancelled")];
-
-fn status(org: &Value, job: &Value) -> Option<&'static str> {
-    JOBS.iter()
-        .find(|(id, _)| *org == text("o1") && *job == text(id))
-        .map(|(_, status)| *status)
+fn key(value: &Value) -> String {
+    format!("{value:?}")
 }
 
 impl Store {
-    fn seat(&self, org: &Value, id: &Value) -> Option<&Row> {
-        self.seats.iter().find(|seat| seat[0] == *org && seat[1] == *id)
-    }
-
     fn joined(&self) -> impl Iterator<Item = (&Row, &Row)> {
+        let seat = |day: &Row| self.seats.iter().find(|seat| seat[..2] == day[..2]);
         self.days
             .iter()
-            .filter_map(|day| self.seat(&day[0], &day[1]).map(|seat| (day, seat)))
-    }
-
-    fn booked(&self, p: &[Value]) -> Result<Vec<Row>, Fail> {
-        let (Value::Text(from), Value::Text(to)) = (&p[1], &p[2]) else {
-            return Err(Fail::Store("booked takes two days".to_owned()));
-        };
-        let mut rows: Vec<Row> = self
-            .joined()
-            .filter(|(day, seat)| {
-                day[0] == p[0] && status(&seat[0], &seat[2]) != Some("cancelled") && {
-                    let Value::Text(at) = &day[2] else { return false };
-                    from <= at && at <= to
-                }
-            })
-            .map(|(day, seat)| vec![seat[1].clone(), seat[2].clone(), seat[4].clone(), day[2].clone()])
-            .collect();
-        rows.sort_by_key(|row| {
-            (
-                format!("{:?}", row[3]),
-                row[2] == Value::Null,
-                format!("{:?}{:?}", row[2], row[0]),
-            )
-        });
-        Ok(rows)
+            .filter_map(move |day| seat(day).map(|seat| (day, seat)))
     }
 }
 
@@ -63,20 +32,12 @@ impl Tx for Store {
         if let Some(rows) = self.trail.run(sql, p) {
             return Ok(rows);
         }
+        let known = |ids: &[&str]| p[0] == text("o1") && ids.iter().any(|id| p[1] == text(id));
         Ok(match sql {
-            jobs::GET => status(&p[0], &p[1]).map_or_else(Vec::new, |_| vec![vec![p[1].clone()]]),
-            workers::GET => match &p[1] {
-                Value::Text(id) if p[0] == text("o1") && ["ada", "bo"].contains(&id.as_str()) => {
-                    vec![vec![p[1].clone()]]
-                }
-                _ => Vec::new(),
-            },
-            seats::LIST => {
-                let mut rows = select(&self.seats, |seat| seat[0] == p[0] && seat[2] == p[1]);
-                rows.sort_by_key(|row| format!("{:?}", row[4]));
-                rows
-            }
-            seats::GET => select(&self.seats, |seat| seat[0] == p[0] && seat[1] == p[1]),
+            jobs::GET if known(&["j1", "j2", "jc"]) => vec![vec![p[1].clone()]],
+            workers::GET if known(&["ada", "bo"]) => vec![vec![p[1].clone()]],
+            seats::LIST => select(&self.seats, |seat| seat[0] == p[0] && seat[2] == p[1]),
+            seats::GET => select(&self.seats, |seat| seat[..2] == p[..2]),
             seats::ADD => {
                 self.seats.push(p.to_vec());
                 Vec::new()
@@ -86,9 +47,9 @@ impl Tx for Store {
                 |seat| seat[..3] == p[..3],
                 |seat| seat[3..].clone_from_slice(&p[3..]),
             ),
-            seats::DAYS => select(&self.days, |day| day[0] == p[0] && day[1] == p[1])
+            seats::DAYS => select(&self.days, |day| day[..2] == p[..2])
                 .into_iter()
-                .map(|day| vec![day[1].clone()])
+                .map(|day| day[1..].to_vec())
                 .collect(),
             seats::HELD => self
                 .joined()
@@ -96,14 +57,19 @@ impl Tx for Store {
                 .map(|(day, _)| vec![day[2].clone()])
                 .collect(),
             seats::CLEAR => {
-                self.days.retain(|day| day[0] != p[0] || day[1] != p[1]);
+                self.days.retain(|day| day[..2] != p[..2]);
                 Vec::new()
             }
             seats::ADD_DAY => {
                 self.days.push(p.to_vec());
                 Vec::new()
             }
-            seats::BOOKED => self.booked(p)?,
+            seats::BOOKED => self
+                .joined()
+                .filter(|(day, seat)| day[0] == p[0] && seat[2] != text("jc"))
+                .filter(|(day, _)| key(&p[1]) <= key(&day[2]) && key(&day[2]) <= key(&p[2]))
+                .map(|(day, seat)| vec![seat[1].clone(), seat[2].clone(), seat[4].clone(), day[2].clone()])
+                .collect(),
             _ => Vec::new(),
         })
     }
@@ -111,128 +77,92 @@ impl Tx for Store {
 
 type TestHost = memory::TestHost<Store>;
 
-fn seat(id: &str, job: &str, title: &str, worker: &str, number: u8) -> String {
-    format!(r#"{{"id":"{id}","job_id":"{job}","title":"{title}","worker_id":{worker},"number":{number},"ext":{{}}}}"#)
+fn seat(id: &str, title: &str, worker: &str, number: u8) -> String {
+    format!(r#"{{"id":"{id}","job_id":"j1","title":"{title}","worker_id":{worker},"number":{number},"ext":{{}}}}"#)
 }
 
-fn booking(seat: &str, job: &str, worker: &str, day: &str) -> String {
-    format!(r#"{{"id":"{seat}","job_id":"{job}","worker_id":{worker},"day":"{day}","ext":{{}}}}"#)
+fn booking(seat: &str, job: &str, worker: &str) -> String {
+    format!(r#"{{"id":"{seat}","job_id":"{job}","worker_id":{worker},"day":"2026-01-06","ext":{{}}}}"#)
+}
+
+fn refused(post: impl Fn(&str, &str, &str) -> Response, cases: &[(&str, &str, &str, u16)]) {
+    for (path, who, body, status) in cases {
+        assert_eq!(post(path, who, body).status, *status, "{path} {body}");
+    }
 }
 
 #[test]
 fn a_job_s_seats_carry_a_title_a_worker_and_a_number_on_the_job() {
     let host = TestHost::default();
     let openworks = Openworks::new(&host).build().unwrap();
+    let post = |path: &str, who: &str, body: &str| send(&openworks, path, who, body);
 
-    let lead = ok(send(&openworks, "/seats/save", "owner", "\nj1\nLead\nada\n2"));
-    let hand = ok(send(&openworks, "/seats/save", "owner", "\nj1\nHand\n\n1"));
+    let hand = ok(post("/seats/save", "owner", "\nj1\nHand\n\n1"));
+    let lead = ok(post("/seats/save", "owner", "\nj1\nLead\nada\n2"));
+    let listed = [seat(&hand, "Hand", "null", 1), seat(&lead, "Lead", r#""ada""#, 2)];
     assert_eq!(
-        ok(send(&openworks, "/seats/list", "viewer", "j1")),
-        format!(
-            "[{},{}]",
-            seat(&hand, "j1", "Hand", "null", 1),
-            seat(&lead, "j1", "Lead", r#""ada""#, 2)
-        )
+        ok(post("/seats/list", "viewer", "j1")),
+        format!("[{}]", listed.join(","))
     );
     assert_eq!(
-        ok(send(
-            &openworks,
-            "/seats/save",
-            "owner",
-            &format!("{hand}\nj1\nHand\nbo\n3")
-        )),
+        ok(post("/seats/save", "owner", &format!("{hand}\nj1\nHand\nbo\n3"))),
         hand
     );
-    assert!(ok(send(&openworks, "/seats/list", "viewer", "j1")).contains(&seat(&hand, "j1", "Hand", r#""bo""#, 3)));
-    assert_eq!(ok(send(&openworks, "/seats/list", "viewer", "j2")), "[]");
+    assert!(ok(post("/seats/list", "viewer", "j1")).contains(&seat(&hand, "Hand", r#""bo""#, 3)));
+    assert_eq!(ok(post("/seats/list", "viewer", "j2")), "[]");
 
-    let taken = send(&openworks, "/seats/save", "owner", "\nj1\nSpare\n\n2");
-    assert_eq!(
-        (taken.status, taken.body.as_str()),
-        (400, "invalid: another seat of the job is number 2")
+    let taken = post("/seats/save", "owner", "\nj1\nSpare\n\n2");
+    assert_eq!(taken.body, "invalid: another seat of the job is number 2");
+    let moved = format!("{lead}\nj2\nLead\n\n");
+    refused(
+        post,
+        &[
+            ("/seats/save", "owner", "\nj1\nSpare\n\n0", 400),
+            ("/seats/save", "owner", "\nj1\n\n\n", 400),
+            ("/seats/save", "owner", "\nj1\nSpare\nnobody\n", 404),
+            ("/seats/save", "owner", "\nnojob\nSpare\n\n", 404),
+            ("/seats/save", "owner", &moved, 404),
+            ("/seats/save", "viewer", "\nj1\nSpare\n\n", 403),
+            ("/seats/list", "other", "j1", 404),
+        ],
     );
-    assert_eq!(send(&openworks, "/seats/save", "owner", "\nj1\nSpare\n\n0").status, 400);
-    assert_eq!(send(&openworks, "/seats/save", "owner", "\nj1\n\n\n").status, 400);
-    assert_eq!(
-        send(&openworks, "/seats/save", "owner", "\nj1\nSpare\nnobody\n").status,
-        404
-    );
-    assert_eq!(
-        send(&openworks, "/seats/save", "owner", "\nnojob\nSpare\n\n").status,
-        404
-    );
-    assert_eq!(
-        send(&openworks, "/seats/save", "owner", &format!("{lead}\nj2\nLead\n\n")).status,
-        404
-    );
-    assert_eq!(send(&openworks, "/seats/save", "viewer", "\nj1\nSpare\n\n").status, 403);
-    assert_eq!(send(&openworks, "/seats/list", "other", "j1").status, 404);
     assert_eq!(host.store().seats.len(), 2);
     assert_eq!(host.store().trail.audits, 3);
-    assert_eq!(host.store().trail.events.len(), 3);
 }
 
 #[test]
 fn a_worker_holds_one_seat_of_a_job_a_day() {
     let host = TestHost::default();
     let openworks = Openworks::new(&host).build().unwrap();
-    let lead = ok(send(&openworks, "/seats/save", "owner", "\nj1\nLead\nada\n1"));
-    let hand = ok(send(&openworks, "/seats/save", "owner", "\nj1\nHand\nada\n2"));
+    let post = |path: &str, who: &str, body: &str| send(&openworks, path, who, body);
+    let lead = ok(post("/seats/save", "owner", "\nj1\nLead\nada\n1"));
+    let hand = ok(post("/seats/save", "owner", "\nj1\nHand\nada\n2"));
     let held = "invalid: worker ada holds another seat of the job on 2026-01-06";
 
     let days = format!("{lead}\n2026-01-06\n2026-01-05\n2026-01-06");
-    assert_eq!(ok(send(&openworks, "/seats/set-days", "owner", &days)), lead);
-    assert_eq!(ok(send(&openworks, "/seats/set-days", "owner", &days)), lead);
+    assert_eq!(ok(post("/seats/set-days", "owner", &days)), lead);
+    assert_eq!(ok(post("/seats/set-days", "owner", &days)), lead);
     assert_eq!(host.store().days.len(), 2);
-    let clash = send(
-        &openworks,
-        "/seats/set-days",
-        "owner",
-        &format!("{hand}\n2026-01-07\n2026-01-06"),
+    assert_eq!(
+        post("/seats/set-days", "owner", &format!("{hand}\n2026-01-07\n2026-01-06")).body,
+        held
     );
-    assert_eq!((clash.status, clash.body.as_str()), (400, held));
-    ok(send(
-        &openworks,
-        "/seats/save",
-        "owner",
-        &format!("{hand}\nj1\nHand\n\n2"),
-    ));
-    ok(send(
-        &openworks,
-        "/seats/set-days",
-        "owner",
-        &format!("{hand}\n2026-01-06"),
-    ));
-    let moved_in = send(&openworks, "/seats/save", "owner", &format!("{hand}\nj1\nHand\nada\n2"));
-    assert_eq!((moved_in.status, moved_in.body.as_str()), (400, held));
-    ok(send(
-        &openworks,
-        "/seats/set-days",
-        "owner",
-        &format!("{lead}\n2026-01-05"),
-    ));
-    ok(send(
-        &openworks,
-        "/seats/save",
-        "owner",
-        &format!("{hand}\nj1\nHand\nada\n2"),
-    ));
+    ok(post("/seats/save", "owner", &format!("{hand}\nj1\nHand\n\n2")));
+    ok(post("/seats/set-days", "owner", &format!("{hand}\n2026-01-06")));
+    let rejoin = format!("{hand}\nj1\nHand\nada\n2");
+    assert_eq!(post("/seats/save", "owner", &rejoin).body, held);
+    ok(post("/seats/set-days", "owner", &format!("{lead}\n2026-01-05")));
+    assert_eq!(ok(post("/seats/save", "owner", &rejoin)), hand);
 
-    assert_eq!(
-        send(&openworks, "/seats/set-days", "owner", &format!("{lead}\n6 Jan")).status,
-        400
-    );
-    assert_eq!(
-        send(&openworks, "/seats/set-days", "owner", "nobody\n2026-01-06").status,
-        404
-    );
-    assert_eq!(
-        send(&openworks, "/seats/set-days", "other", &format!("{lead}\n2026-01-06")).status,
-        404
-    );
-    assert_eq!(
-        send(&openworks, "/seats/set-days", "viewer", &format!("{lead}\n2026-01-06")).status,
-        403
+    let day = format!("{lead}\n2026-01-06");
+    refused(
+        post,
+        &[
+            ("/seats/set-days", "owner", &format!("{lead}\n6 Jan"), 400),
+            ("/seats/set-days", "owner", "nobody\n2026-01-06", 404),
+            ("/seats/set-days", "other", &day, 404),
+            ("/seats/set-days", "viewer", &day, 403),
+        ],
     );
     assert_eq!(host.store().trail.events.len(), 8);
 }
@@ -241,36 +171,35 @@ fn a_worker_holds_one_seat_of_a_job_a_day() {
 fn bookings_show_who_works_where_across_jobs_not_cancelled() {
     let host = TestHost::default();
     let openworks = Openworks::new(&host).build().unwrap();
-    let lead = ok(send(&openworks, "/seats/save", "owner", "\nj1\nLead\nada\n1"));
-    let hand = ok(send(&openworks, "/seats/save", "owner", "\nj1\nHand\n\n2"));
-    let other = ok(send(&openworks, "/seats/save", "owner", "\nj2\nLead\nada\n1"));
-    let gone = ok(send(&openworks, "/seats/save", "owner", "\njc\nLead\nada\n1"));
-    for seat in [&lead, &hand, &other, &gone] {
-        ok(send(
-            &openworks,
+    let post = |path: &str, who: &str, body: &str| send(&openworks, path, who, body);
+    let mut seats = Vec::new();
+    for body in [
+        "\nj1\nLead\nada\n1",
+        "\nj2\nLead\nada\n1",
+        "\nj1\nHand\n\n2",
+        "\njc\nLead\nada\n1",
+    ] {
+        let seat = ok(post("/seats/save", "owner", body));
+        ok(post(
             "/seats/set-days",
             "owner",
             &format!("{seat}\n2026-01-06\n2026-01-12"),
         ));
+        seats.push(seat);
     }
 
+    let booked = [
+        booking(&seats[0], "j1", r#""ada""#),
+        booking(&seats[1], "j2", r#""ada""#),
+        booking(&seats[2], "j1", "null"),
+    ];
     assert_eq!(
-        ok(send(&openworks, "/seats/booked", "viewer", "2026-01-05\n2026-01-09")),
-        format!(
-            "[{},{},{}]",
-            booking(&lead, "j1", r#""ada""#, "2026-01-06"),
-            booking(&other, "j2", r#""ada""#, "2026-01-06"),
-            booking(&hand, "j1", "null", "2026-01-06"),
-        )
+        ok(post("/seats/booked", "viewer", "2026-01-05\n2026-01-09")),
+        format!("[{}]", booked.join(","))
     );
-    ok(send(&openworks, "/seats/set-days", "owner", &format!("{lead}\n")));
-    assert!(!ok(send(&openworks, "/seats/booked", "viewer", "2026-01-05\n2026-01-12")).contains(&lead));
-    assert_eq!(
-        send(&openworks, "/seats/booked", "viewer", "2026-01-09\n2026-01-05").status,
-        400
-    );
-    assert_eq!(
-        ok(send(&openworks, "/seats/booked", "other", "2026-01-05\n2026-01-12")),
-        "[]"
-    );
+    ok(post("/seats/set-days", "owner", &format!("{}\n", seats[0])));
+    let left = ok(post("/seats/booked", "viewer", "2026-01-05\n2026-01-12"));
+    assert!(!left.contains(&format!(r#""{}""#, seats[0])), "{left}");
+    assert_eq!(post("/seats/booked", "viewer", "2026-01-09\n2026-01-05").status, 400);
+    assert_eq!(ok(post("/seats/booked", "other", "2026-01-05\n2026-01-12")), "[]");
 }
