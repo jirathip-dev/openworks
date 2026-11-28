@@ -47,7 +47,7 @@ web bundle's folder, `web`), `OPENWORKS_FILES` (`files`) and `OPENWORKS_DUE_SECO
 | `POST <route>` | each route of `GET /openapi.json`, with `Authorization: Bearer <token>` |
 | `GET <anything else>` | a file of the web bundle, else its `index.html` |
 
-The server's Postgres test runs when `OPENWORKS_TEST_DATABASE_URL` names a database it may write to.
+The server's Postgres test (`-- --ignored`) runs in the `local/postgres` gate; locally set `OPENWORKS_TEST_DATABASE_URL`.
 
 ## Checks
 
