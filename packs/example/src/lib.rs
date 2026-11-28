@@ -3,8 +3,7 @@ use openworks_core::{Approval, Extension, Fail, Hook, Id, Mount, Pack, Print, Re
 /// Counts the changes in each org's event log.
 pub const CHANGES: &str = "select org_id, count(*) from works.events where org_id = $1 group by org_id";
 
-/// Adds `ext.example.changes` to every org record.
-pub const EXTENSION: Extension = Extension {
+pub(crate) const EXTENSION: Extension = Extension {
     record: "orgs",
     key: "example",
     fields: &[("changes", Type::Int)],
