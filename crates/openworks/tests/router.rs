@@ -120,10 +120,6 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
         jobs::SAVE | jobs::PLAN | jobs::MOVE | job_orders::ISSUE | tasks::SAVE | tasks::ARCHIVE | tasks::RESTORE => {
             Some(vec![vec![params[1].clone()]])
         }
-        equipment::FILL | equipment::CANCEL => Some(vec![vec![params[1].clone()]]),
-        equipment::LOCK => Some(vec![fields(&["e1", "V-1", "Van", "Van", "Yard", "", "in_service"])]),
-        equipment::GET_NEED => Some(vec![fields(&["n1", "jo", "", "Van", "2026-01-05", "2026-01-09", ""])]),
-        equipment::BOOKING => Some(vec![fields(&["b1", "e1", "jo", "", "", "", "booked"])]),
         tasks::GET => {
             let mut row = vec![params[1].clone(), Value::Text("jo".to_owned())];
             row.resize(12, Value::Null);
@@ -143,13 +139,22 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
             Value::Null,
             Value::Null,
         ]]),
-        _ => None,
+        _ => equipment_rows(sql, params),
     }
 }
 
-fn fields(texts: &[&str]) -> Row {
-    let value = |field: &&str| (!field.is_empty()).then(|| Value::Text((*field).to_owned()));
-    texts.iter().map(|field| value(field).unwrap_or(Value::Null)).collect()
+fn equipment_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
+    let row = |texts: [&str; 7]| texts.map(|field| (!field.is_empty()).then(|| Value::Text(field.to_owned())));
+    let row = match sql {
+        equipment::FILL | equipment::CANCEL => return Some(vec![vec![params[1].clone()]]),
+        equipment::LOCK => row(["e1", "V-1", "Van", "Van", "Yard", "", "in_service"]),
+        equipment::GET_NEED => row(["n1", "jo", "", "Van", "2026-01-05", "2026-01-09", ""]),
+        equipment::BOOKING => row(["b1", "e1", "jo", "", "", "", "booked"]),
+        _ => return None,
+    };
+    Some(vec![
+        row.into_iter().map(|field| field.unwrap_or(Value::Null)).collect(),
+    ])
 }
 
 fn job(id: &Value) -> Row {
@@ -495,8 +500,6 @@ fn body(operation: Operation) -> &'static str {
         | Operation::LostReasonList
         | Operation::ProjectRoleList
         | Operation::ExportCreate
-        | Operation::EquipmentList
-        | Operation::EquipmentNeeds
         | Operation::WorkerList
         | Operation::WorkerMe
         | Operation::TeamList => "",
@@ -537,11 +540,18 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobOrderSave => "jo\nSet out the first floor",
         Operation::TaskSave => "jo\nt1\tDIG\tDig\t#aa5500\t0\t2\t1600\t2500\t1\t\n\tPOUR\tPour\t\t2\t1\t\t\t\t",
         Operation::TaskArchive | Operation::TaskRestore => "t1",
+        _ => equipment_body(operation),
+    }
+}
+
+fn equipment_body(operation: Operation) -> &'static str {
+    match operation {
         Operation::EquipmentSave => "\nV-1\nVan\nVan\nYard\njo\n",
         Operation::EquipmentBook => "e1\njo\n\n2026-01-05\n2026-01-09",
         Operation::EquipmentFill => "n1\ne1",
         Operation::EquipmentCancel => "b1",
         Operation::EquipmentNeed => "jo\n\nVan\n2026-01-05\n2026-01-09",
+        _ => "",
     }
 }
 
