@@ -21,6 +21,7 @@ mod projects;
 mod series;
 mod setup;
 mod sites;
+mod tasks;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
 
@@ -69,13 +70,17 @@ openworks_core::operations! {
     JobFinish => jobs::FINISH,
     JobReopen => jobs::REOPEN,
     JobCancel => jobs::CANCEL,
+    TaskList => tasks::LIST,
+    TaskSave => tasks::SAVE,
+    TaskArchive => tasks::ARCHIVE,
+    TaskRestore => tasks::RESTORE,
 }
 
 const KEY: &str = "orgs";
 
 const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 7] = [
+const HOMES: [(&str, &str); 8] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -83,6 +88,7 @@ const HOMES: [(&str, &str); 7] = [
     ("/sites", "sites"),
     ("/projects", "projects"),
     ("/jobs", "jobs"),
+    ("/tasks", "tasks"),
 ];
 
 impl Operation {
@@ -109,6 +115,7 @@ impl Operation {
             | Self::JobFinish
             | Self::JobReopen
             | Self::JobCancel => ("/jobs", "jobs"),
+            Self::TaskList | Self::TaskSave | Self::TaskArchive | Self::TaskRestore => ("/tasks", "tasks"),
             _ => ("/projects", "projects"),
         }
     }

@@ -8,7 +8,7 @@ use openworks::{Caller, Files, Host, Openworks, Operation, Refused, Request, Res
 use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
-use openworks_db::{approvals, attachments, clients, idempotency, jobs, members, projects, sites, stages};
+use openworks_db::{approvals, attachments, clients, idempotency, jobs, members, projects, sites, stages, tasks};
 
 type Statement = (&'static str, Vec<Value>);
 
@@ -114,7 +114,14 @@ impl Tx for Store {
 fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
     match sql {
         jobs::GET => Some(vec![job(&params[1])]),
-        jobs::SAVE | jobs::PLAN | jobs::MOVE => Some(vec![vec![params[1].clone()]]),
+        jobs::SAVE | jobs::PLAN | jobs::MOVE | tasks::SAVE | tasks::ARCHIVE | tasks::RESTORE => {
+            Some(vec![vec![params[1].clone()]])
+        }
+        tasks::GET => {
+            let mut row = vec![params[1].clone(), Value::Text("jo".to_owned())];
+            row.resize(12, Value::Null);
+            Some(vec![row])
+        }
         _ => None,
     }
 }
@@ -485,6 +492,9 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobOpen => "jp",
         Operation::JobFinish => "jo\n2026-01-09",
         Operation::JobReopen => "jf",
+        Operation::TaskList => "jo",
+        Operation::TaskSave => "jo\nt1\tDIG\tDig\t#aa5500\t0\t2\t1600\t2500\t1\t\n\tPOUR\tPour\t\t2\t1\t\t\t\t",
+        Operation::TaskArchive | Operation::TaskRestore => "t1",
     }
 }
 
@@ -774,7 +784,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 20);
+    assert_eq!(once.len(), 21);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }

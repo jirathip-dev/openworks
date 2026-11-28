@@ -1,8 +1,10 @@
 use std::fmt;
 
 mod job;
+mod task;
 
 pub use job::{Date, JobStatus, JobStep, Window, WorkDays};
+pub use task::Hours;
 
 /// An opaque identifier the host hands out.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
