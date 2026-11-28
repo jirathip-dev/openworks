@@ -13,6 +13,7 @@ mod clients;
 mod due;
 mod files;
 mod idempotency;
+mod job_orders;
 mod jobs;
 mod json;
 mod members;
@@ -69,13 +70,18 @@ openworks_core::operations! {
     JobFinish => jobs::FINISH,
     JobReopen => jobs::REOPEN,
     JobCancel => jobs::CANCEL,
+    JobOrderList => job_orders::LIST,
+    JobOrderGet => job_orders::GET,
+    JobOrderPrint => job_orders::PRINT,
+    JobOrderSave => job_orders::SAVE,
+    JobOrderIssue => job_orders::ISSUE,
 }
 
 const KEY: &str = "orgs";
 
 const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 7] = [
+const HOMES: [(&str, &str); 8] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -83,6 +89,7 @@ const HOMES: [(&str, &str); 7] = [
     ("/sites", "sites"),
     ("/projects", "projects"),
     ("/jobs", "jobs"),
+    ("/job-orders", "job_orders"),
 ];
 
 impl Operation {
@@ -109,6 +116,9 @@ impl Operation {
             | Self::JobFinish
             | Self::JobReopen
             | Self::JobCancel => ("/jobs", "jobs"),
+            Self::JobOrderList | Self::JobOrderGet | Self::JobOrderPrint | Self::JobOrderSave | Self::JobOrderIssue => {
+                ("/job-orders", "job_orders")
+            }
             _ => ("/projects", "projects"),
         }
     }
