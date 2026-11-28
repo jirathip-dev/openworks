@@ -12,6 +12,7 @@ pub use series::{Period, Series};
 use operations::{CLIENTS, KEY};
 
 mod approvals;
+mod board;
 mod clients;
 mod due;
 mod equipment;

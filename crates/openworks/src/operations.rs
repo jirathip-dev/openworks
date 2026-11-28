@@ -1,8 +1,8 @@
 use openworks_core::{Mount, Reach};
 
 use crate::{
-    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, reports, seats,
-    setup, sites, tasks, teams, workers,
+    approvals, board, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, reports,
+    seats, setup, sites, tasks, teams, workers,
 };
 
 openworks_core::operations! {
@@ -48,7 +48,7 @@ openworks_core::operations! {
     HourKindList => setup::HOUR_KINDS,
     HourKindSave => setup::HOUR_KIND_SAVE,
     JobList => jobs::LIST,
-    JobBoard => jobs::BOARD,
+    JobBoard => board::BOARD,
     JobGet => jobs::GET,
     JobSave => jobs::SAVE,
     JobReschedule => jobs::RESCHEDULE,
