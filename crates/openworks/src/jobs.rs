@@ -5,7 +5,7 @@ use openworks_db::jobs::{GET as GET_SQL, LIST as LIST_SQL, MOVE, PLAN, SAVE as S
 use openworks_db::{projects, series, stages};
 
 use crate::clients::{changed, lines, org};
-use crate::projects::{first, plain, project, reaching, record, reopened, text};
+use crate::projects::{first, plain, project, reaching, record, records, reopened, text};
 use crate::{Period, Series};
 
 const NUMBERS: Series = Series {
@@ -233,6 +233,18 @@ fn status(row: &Row) -> Result<JobStatus, Fail> {
 
 pub(crate) fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
     first(tx.run(GET_SQL, &[org(who), text(id), reaching(who, word)])?)
+}
+
+pub(crate) fn of_job(
+    who: &Who,
+    tx: &mut dyn Tx,
+    body: &str,
+    sql: &'static str,
+    fields: &[&'static str],
+) -> Result<Vec<Record>, Fail> {
+    let id = body.trim();
+    job(who, tx, id, Word::Read)?;
+    records(tx.run(sql, &[org(who), text(id)])?, fields)
 }
 
 pub(crate) fn window(starts_on: Date, ends_on: Date) -> Result<Window, Fail> {
