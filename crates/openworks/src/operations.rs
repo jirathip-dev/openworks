@@ -1,6 +1,8 @@
 use openworks_core::{Mount, Reach};
 
-use crate::{approvals, clients, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks};
+use crate::{
+    approvals, clients, exports, files, job_orders, jobs, members, orgs, plans, projects, setup, sites, tasks,
+};
 
 openworks_core::operations! {
     OrgList => orgs::LIST,
@@ -61,6 +63,13 @@ openworks_core::operations! {
     TaskSave => tasks::SAVE,
     TaskArchive => tasks::ARCHIVE,
     TaskRestore => tasks::RESTORE,
+    PlanGroups => plans::GROUPS,
+    PlanGroupsSave => plans::GROUPS_SAVE,
+    PlanVersions => plans::VERSIONS,
+    PlanRestoreVersion => plans::RESTORE_VERSION,
+    PlanTemplates => plans::TEMPLATES,
+    PlanTemplatesSave => plans::TEMPLATES_SAVE,
+    PlanReplaceFromTemplate => plans::REPLACE_FROM_TEMPLATE,
     ExportCreate => exports::CREATE,
 }
 
@@ -68,7 +77,7 @@ pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 10] = [
+const HOMES: [(&str, &str); 11] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -78,6 +87,7 @@ const HOMES: [(&str, &str); 10] = [
     ("/jobs", "jobs"),
     ("/job-orders", "job_orders"),
     ("/tasks", "tasks"),
+    ("/plans", "plans"),
     ("/exports", "exports"),
 ];
 
@@ -112,6 +122,13 @@ impl Operation {
             Self::TaskList | Self::TaskByProject | Self::TaskSave | Self::TaskArchive | Self::TaskRestore => {
                 ("/tasks", "tasks")
             }
+            Self::PlanGroups
+            | Self::PlanGroupsSave
+            | Self::PlanVersions
+            | Self::PlanRestoreVersion
+            | Self::PlanTemplates
+            | Self::PlanTemplatesSave
+            | Self::PlanReplaceFromTemplate => ("/plans", "plans"),
             Self::ExportCreate => ("/exports", "exports"),
             _ => ("/projects", "projects"),
         }

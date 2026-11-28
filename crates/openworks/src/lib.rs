@@ -24,6 +24,7 @@ mod json;
 mod members;
 mod operations;
 mod orgs;
+mod plans;
 mod projects;
 mod series;
 mod setup;
