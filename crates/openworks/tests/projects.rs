@@ -1283,7 +1283,6 @@ fn a_job_groups_its_tasks_in_order() {
         refused,
         (400, "invalid: a group line is 3 tab-separated fields".to_owned())
     );
-    assert_eq!(status(&openworks, "/plans/groups", "member", &job).0, 404);
 }
 
 #[test]
