@@ -55,7 +55,7 @@ impl Host for &Store {
     fn who(&self, credential: &str) -> Option<Caller> {
         let mut found = None;
         self.transact(&mut |tx| {
-            found = tokens::find(tx, credential)?;
+            found = tokens::find(tx, credential, self.now())?;
             Ok(())
         })
         .ok()?;
