@@ -1,8 +1,8 @@
 use openworks_core::{Mount, Reach};
 
 use crate::{
-    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, seats, setup,
-    sites, tasks, teams, workers,
+    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, reports, seats,
+    setup, sites, tasks, teams, workers,
 };
 
 openworks_core::operations! {
@@ -45,6 +45,8 @@ openworks_core::operations! {
     LostReasonSave => setup::LOST_REASON_SAVE,
     ProjectRoleList => setup::ROLES,
     ProjectRoleSave => setup::ROLE_SAVE,
+    HourKindList => setup::HOUR_KINDS,
+    HourKindSave => setup::HOUR_KIND_SAVE,
     JobList => jobs::LIST,
     JobBoard => jobs::BOARD,
     JobGet => jobs::GET,
@@ -91,13 +93,20 @@ openworks_core::operations! {
     SeatSave => seats::SAVE,
     SeatSetDays => seats::SET_DAYS,
     SeatBooked => seats::BOOKED,
+    ReportList => reports::LIST,
+    ReportSave => reports::SAVE,
+    ReportHours => reports::HOURS,
+    ReportSetHours => reports::SET_HOURS,
+    ReportProgress => reports::PROGRESS,
+    ReportSetProgress => reports::SET_PROGRESS,
+    ReportHoursByDay => reports::HOURS_BY_DAY,
 }
 
 pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 15] = [
+const HOMES: [(&str, &str); 16] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -113,6 +122,7 @@ const HOMES: [(&str, &str); 15] = [
     ("/workers", "workers"),
     ("/teams", "teams"),
     ("/seats", "seats"),
+    ("/daily-reports", "daily_reports"),
 ];
 
 impl Operation {
@@ -167,6 +177,13 @@ impl Operation {
             }
             Self::TeamList | Self::TeamSave => ("/teams", "teams"),
             Self::SeatList | Self::SeatSave | Self::SeatSetDays | Self::SeatBooked => ("/seats", "seats"),
+            Self::ReportList
+            | Self::ReportSave
+            | Self::ReportHours
+            | Self::ReportSetHours
+            | Self::ReportProgress
+            | Self::ReportSetProgress
+            | Self::ReportHoursByDay => ("/daily-reports", "daily_reports"),
             _ => ("/projects", "projects"),
         }
     }

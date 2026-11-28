@@ -4,6 +4,7 @@ use openworks_db::plans::{
     GROUP_ADD, GROUP_SAVE, GROUPS as GROUPS_SQL, KEEP, LINK, TEMPLATE, TEMPLATE_ADD, TEMPLATE_SAVE,
     TEMPLATES as TEMPLATES_SQL, UNLINK, VERSION, VERSIONS as VERSIONS_SQL,
 };
+use openworks_db::reports::REPORTED;
 use openworks_db::tasks::{ADD, ARCHIVE, GET as TASK, LIST as TASKS, SAVE};
 
 use crate::clients::{changed, lines, named, org};
@@ -30,7 +31,7 @@ pub const VERSIONS: Declaration =
 pub const RESTORE_VERSION: Declaration = openworks_core::create!(
     "restore-version",
     needs: Write,
-    queries: [VERSION, JOB, TASKS, TASK, ADD, SAVE, ARCHIVE, VERSIONS_SQL, KEEP],
+    queries: [VERSION, JOB, TASKS, TASK, ADD, SAVE, ARCHIVE, REPORTED, VERSIONS_SQL, KEEP],
     restore_version,
 );
 
@@ -50,7 +51,7 @@ pub const TEMPLATES_SAVE: Declaration = openworks_core::create!(
 pub const REPLACE_FROM_TEMPLATE: Declaration = openworks_core::create!(
     "replace-from-template",
     needs: Write,
-    queries: [JOB, TEMPLATE, TASKS, TASK, ADD, SAVE, ARCHIVE, VERSIONS_SQL, KEEP],
+    queries: [JOB, TEMPLATE, TASKS, TASK, ADD, SAVE, ARCHIVE, REPORTED, VERSIONS_SQL, KEEP],
     replace_from_template,
 );
 

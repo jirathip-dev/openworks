@@ -1,8 +1,10 @@
 use openworks_core::{Call, Declaration, Fail, Record, StageKind, Tx, Value, Who};
+use openworks_db::reports::{KIND_SAVE, KINDS};
 use openworks_db::{lost_reasons, project_roles, stages};
 
 use crate::clients::{lines, named, org};
-use crate::projects::record;
+use crate::projects::{record, records};
+use crate::tasks::count;
 
 /// Lists the company's stages in order, as records of kind `stages`.
 pub const STAGES: Declaration =
@@ -37,6 +39,14 @@ pub const ROLES: Declaration = openworks_core::list!(
 /// Saves a project role from a body of `key` and `name` lines; answers its key.
 pub const ROLE_SAVE: Declaration =
     openworks_core::write!("role-save", needs: Settings, queries: [project_roles::SAVE], save_role);
+
+/// Lists the company's hour kinds in order, as records of kind `hour_kinds`.
+pub const HOUR_KINDS: Declaration =
+    openworks_core::list!("hour-kinds", needs: Read, record: "hour_kinds", queries: [KINDS], list_hour_kinds);
+
+/// Saves an hour kind from a body of `key`, `name` and `sort` lines; answers its key.
+pub const HOUR_KIND_SAVE: Declaration =
+    openworks_core::write!("hour-kind-save", needs: Settings, queries: [KIND_SAVE], save_hour_kind);
 
 fn list_stages(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<Vec<Record>, Fail> {
     let rows = tx.run(stages::LIST, &[org(who)])?;
@@ -88,6 +98,17 @@ fn list_roles(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<Vec<Record>, Fail> 
 fn save_role(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     let [key, name] = lines(call.body)?;
     tx.run(project_roles::SAVE, &[org(call.who), keyed(key)?, named(name)?])?;
+    Ok(key.to_owned())
+}
+
+fn list_hour_kinds(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<Vec<Record>, Fail> {
+    records(tx.run(KINDS, &[org(who)])?, &["name", "sort"])
+}
+
+fn save_hour_kind(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
+    let [key, name, sort] = lines(call.body)?;
+    let sort = if sort.is_empty() { 0 } else { count("sort", sort)? };
+    tx.run(KIND_SAVE, &[org(call.who), keyed(key)?, named(name)?, Value::Int(sort)])?;
     Ok(key.to_owned())
 }
 

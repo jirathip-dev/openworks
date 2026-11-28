@@ -1,6 +1,7 @@
 use openworks_core::{Call, Declaration, Fail, Hours, Record, Row, Tx, Value, Who, Word};
 use openworks_db::jobs::GET as JOB;
 use openworks_db::projects::GET as PROJECT;
+use openworks_db::reports::REPORTED;
 use openworks_db::tasks::{
     ADD, ARCHIVE as ARCHIVE_SQL, BY_PROJECT as BY_PROJECT_SQL, GET as GET_SQL, LIST as LIST_SQL,
     RESTORE as RESTORE_SQL, SAVE as SAVE_SQL,
@@ -23,7 +24,7 @@ pub const SAVE: Declaration =
 
 /// Archives the task with the body's id unless hours are reported on it.
 pub const ARCHIVE: Declaration =
-    openworks_core::write!("archive", needs: Write, queries: [GET_SQL, ARCHIVE_SQL], archive);
+    openworks_core::write!("archive", needs: Write, queries: [GET_SQL, REPORTED, ARCHIVE_SQL], archive);
 
 /// Restores the archived task with the body's id.
 pub const RESTORE: Declaration =
@@ -158,8 +159,11 @@ fn archive(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
 }
 
 pub(crate) fn retire(call: &Call, tx: &mut dyn Tx, id: &str) -> Result<String, Fail> {
-    // TODO(#19)
-    let reported = Hours::ZERO;
+    let rows = tx.run(REPORTED, &[org(call.who), text(id)])?;
+    let reported = match rows.first().and_then(|row| row.first()) {
+        Some(Value::Int(count)) => Hours::hundredths(*count).unwrap_or(Hours::ZERO),
+        _ => Hours::ZERO,
+    };
     if !reported.lets_archive() {
         return Err(Fail::Invalid(format!("task {id} has hours reported on it")));
     }

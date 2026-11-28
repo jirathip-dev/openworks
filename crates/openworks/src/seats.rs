@@ -8,7 +8,7 @@ use openworks_db::seats::{
 use openworks_db::workers::GET as WORKER;
 
 use crate::clients::{changed, lines, optional, org};
-use crate::jobs::{date, job, window};
+use crate::jobs::{date, job, of_job, window};
 use crate::projects::{first, plain, reaching, records, text};
 use crate::tasks::count;
 
@@ -31,9 +31,7 @@ pub const BOOKED: Declaration =
 const FIELDS: [&str; 4] = ["job_id", "title", "worker_id", "number"];
 
 fn list(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
-    let id = body.trim();
-    job(who, tx, id, Word::Read)?;
-    records(tx.run(LIST_SQL, &[org(who), text(id)])?, &FIELDS)
+    of_job(who, tx, body, LIST_SQL, &FIELDS)
 }
 
 fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
