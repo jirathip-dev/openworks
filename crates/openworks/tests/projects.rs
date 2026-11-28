@@ -6,9 +6,10 @@ use std::thread;
 
 use memory::{T0, ok, send};
 use openworks::Openworks;
-use openworks_core::{Fail, Role, Row, Tx, Value};
+use openworks_core::{Fail, Hours, Role, Row, Tx, Value};
 use openworks_db::{
-    AUDIT, EVENT, clients, jobs, lost_reasons, members, project_members, project_roles, projects, series, sites, stages,
+    AUDIT, EVENT, clients, jobs, lost_reasons, members, project_members, project_roles, projects, series, sites,
+    stages, tasks,
 };
 
 #[derive(Clone, Default)]
@@ -21,6 +22,7 @@ struct Store {
     projects: Vec<Row>,
     staffed: Vec<Row>,
     jobs: Vec<Row>,
+    tasks: Vec<Row>,
     numbers: HashMap<String, i64>,
     events: Vec<Value>,
     audits: usize,
@@ -168,6 +170,53 @@ impl Store {
                 *last += 1;
                 vec![vec![Value::Int(*last)]]
             }
+            _ => self.task_rows(sql, p),
+        }
+    }
+
+    fn task_rows(&mut self, sql: &'static str, p: &[Value]) -> Vec<Row> {
+        match sql {
+            tasks::ADD => {
+                self.tasks.push([p, &[Value::Null]].concat());
+                Vec::new()
+            }
+            tasks::LIST => {
+                let mut rows: Vec<Row> = self
+                    .tasks
+                    .iter()
+                    .filter(|row| row[0] == p[0] && row[2] == p[1])
+                    .map(|row| row[1..].to_vec())
+                    .collect();
+                rows.sort_by_key(|row| format!("{:?}{:?}", row[9], row[0]));
+                rows
+            }
+            tasks::GET => self
+                .tasks
+                .iter()
+                .filter(|row| {
+                    row[..2] == p[..2]
+                        && self.jobs.iter().any(|job| {
+                            job[0] == row[0]
+                                && job[1] == row[2]
+                                && self.reaches(&vec![job[0].clone(), job[2].clone()], &p[2])
+                        })
+                })
+                .map(|row| row[1..].to_vec())
+                .collect(),
+            tasks::SAVE => self
+                .tasks
+                .iter_mut()
+                .find(|row| row[..3] == p[..3])
+                .map_or_else(Vec::new, |row| {
+                    row[3..12].clone_from_slice(&p[3..12]);
+                    vec![vec![row[1].clone()]]
+                }),
+            tasks::ARCHIVE => change(&mut self.tasks, p, |row| {
+                if row[12] == Value::Null {
+                    row[12] = p[2].clone();
+                }
+            }),
+            tasks::RESTORE => change(&mut self.tasks, p, |row| row[12] = Value::Null),
             _ => Vec::new(),
         }
     }
@@ -821,4 +870,168 @@ fn a_project_is_done_once_every_job_is_finished_or_cancelled_and_reopening_one_w
     assert_eq!(job_field(&openworks, &job, "status"), r#""open""#);
     ok(send(&openworks, "/jobs/cancel", "owner", &job));
     assert_eq!(moving("done").0, 200);
+}
+
+fn tasks(openworks: &Openworks<&TestHost>, credential: &str, job: &str) -> String {
+    ok(send(openworks, "/tasks/list", credential, job))
+}
+
+#[test]
+fn a_job_saves_its_tasks_one_or_many_in_order() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let job = job(&openworks, &project(&openworks, "Hall"));
+    let audits = host.store().audits;
+    let events = host.store().events.len();
+
+    let saved = ok(send(
+        &openworks,
+        "/tasks/save",
+        "owner",
+        &format!("{job}\n\tDIG\tDig\t#aa5500\t\t2\t1650\t2500\t\tby hand\n\tPOUR\tPour\t\t2\t\t\t\t\t"),
+    ));
+
+    let [dig, pour] = saved.split('\n').collect::<Vec<_>>()[..] else {
+        panic!("{saved}")
+    };
+    assert_eq!(host.store().audits, audits + 1);
+    assert_eq!(host.store().events.len(), events + 1);
+    assert_eq!(
+        tasks(&openworks, "viewer", &job),
+        format!(
+            r##"[{{"id":"{dig}","job_id":"{job}","code":"DIG","name":"Dig","color":"#aa5500","start_offset":0,"days":2,"planned_hours":1650,"weight":2500,"order":1,"remark":"by hand","archived_at":null,"ext":{{}}}},{{"id":"{pour}","job_id":"{job}","code":"POUR","name":"Pour","color":null,"start_offset":2,"days":1,"planned_hours":null,"weight":null,"order":2,"remark":"","archived_at":null,"ext":{{}}}}]"##
+        )
+    );
+
+    let again = ok(send(
+        &openworks,
+        "/tasks/save",
+        "owner",
+        &format!("{job}\n{pour}\tPOUR\tPour slab\t\t3\t1\t800\t\t0\t\n\tCURE\tCure\t\t4\t3\t\t\t\t"),
+    ));
+
+    let cure = again.strip_prefix(&format!("{pour}\n")).unwrap();
+    let listed = tasks(&openworks, "owner", &job);
+    let order: Vec<&str> = [pour, dig, cure]
+        .into_iter()
+        .map(|id| &listed[listed.find(id).unwrap()..])
+        .collect();
+    assert!(order.windows(2).all(|pair| pair[0].len() > pair[1].len()), "{listed}");
+    assert!(
+        listed.contains(r#""name":"Pour slab","color":null,"start_offset":3,"days":1,"planned_hours":800"#),
+        "{listed}"
+    );
+    assert!(listed.contains(&format!(r#""id":"{cure}","job_id":"{job}","code":"CURE","name":"Cure","color":null,"start_offset":4,"days":3,"planned_hours":null,"weight":null,"order":3"#)), "{listed}");
+}
+
+fn bad_lines(job: &str, theirs: &str) -> Vec<(String, String)> {
+    [
+        ("\tA\tA\tred\t\t\t\t\t\t", "invalid: a colour is #rrggbb, not red"),
+        ("\tA\tA\t\t\t0\t\t\t\t", "invalid: a task lasts at least one day"),
+        (
+            "\tA\tA\t\t-1\t\t\t\t\t",
+            "invalid: start_offset is a whole number, not -1",
+        ),
+        (
+            "\tA\tA\t\t\t\t-5\t\t\t",
+            "invalid: planned_hours is whole hundredths of an hour, not -5",
+        ),
+        (
+            "\tA\tA\t\t\t\t7.5\t\t\t",
+            "invalid: planned_hours is whole hundredths of an hour, not 7.5",
+        ),
+        ("\tA\t\t\t\t\t\t\t\t", "invalid: a name is needed"),
+        ("\tA\tA", "invalid: a task line is 10 tab-separated fields"),
+        (
+            &format!("{theirs}\tA\tA\t\t\t\t\t\t\t"),
+            &format!("invalid: task {theirs} is not on job {job}"),
+        ),
+    ]
+    .into_iter()
+    .map(|(line, why)| (line.to_owned(), why.to_owned()))
+    .collect()
+}
+
+#[test]
+fn a_task_line_out_of_shape_saves_nothing() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let job = job(&openworks, &project(&openworks, "Hall"));
+    let other = self::job(&openworks, &project(&openworks, "Other"));
+    let theirs = ok(send(
+        &openworks,
+        "/tasks/save",
+        "owner",
+        &format!("{other}\n\tA\tA\t\t\t\t\t\t\t"),
+    ));
+
+    for (line, why) in bad_lines(&job, &theirs) {
+        let body = format!("{job}\n\tOK\tFine\t\t\t\t\t\t\t\n{line}");
+        assert_eq!(status(&openworks, "/tasks/save", "owner", &body), (400, why), "{line}");
+    }
+    assert_eq!(tasks(&openworks, "owner", &job), "[]");
+    assert_eq!(
+        status(
+            &openworks,
+            "/tasks/save",
+            "viewer",
+            &format!("{job}\n\tA\tA\t\t\t\t\t\t\t")
+        )
+        .0,
+        403
+    );
+    assert_eq!(
+        status(
+            &openworks,
+            "/tasks/save",
+            "member",
+            &format!("{job}\n\tA\tA\t\t\t\t\t\t\t")
+        )
+        .0,
+        404
+    );
+    assert_eq!(status(&openworks, "/tasks/list", "member", &job).0, 404);
+}
+
+#[test]
+fn a_task_is_archived_once_and_restored() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let job = job(&openworks, &project(&openworks, "Hall"));
+    let task = ok(send(
+        &openworks,
+        "/tasks/save",
+        "owner",
+        &format!("{job}\n\tDIG\tDig\t\t\t\t\t\t\t"),
+    ));
+    let archived = |openworks: &Openworks<&TestHost>| {
+        let listed = tasks(openworks, "owner", &job);
+        listed[listed.find("archived_at").unwrap() + 13..]
+            .split([',', '}'])
+            .next()
+            .unwrap()
+            .to_owned()
+    };
+
+    host.set_clock(5);
+    assert_eq!(ok(send(&openworks, "/tasks/archive", "owner", &task)), task);
+    host.set_clock(9);
+    assert_eq!(ok(send(&openworks, "/tasks/archive", "manager", &task)), task);
+    assert_eq!(archived(&openworks), (T0 + 5).to_string());
+
+    assert_eq!(status(&openworks, "/tasks/restore", "viewer", &task).0, 403);
+    assert_eq!(status(&openworks, "/tasks/restore", "member", &task).0, 404);
+    assert_eq!(status(&openworks, "/tasks/archive", "other", &task).0, 404);
+    assert_eq!(ok(send(&openworks, "/tasks/restore", "owner", &task)), task);
+    assert_eq!(archived(&openworks), "null");
+}
+
+#[test]
+fn only_a_task_with_no_reported_hours_may_be_archived() {
+    assert!(Hours::ZERO.lets_archive());
+    assert!(!Hours::hundredths(25).unwrap().lets_archive());
+    assert_eq!(Hours::hundredths(-1), None);
 }
