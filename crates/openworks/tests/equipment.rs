@@ -1,7 +1,7 @@
 mod memory;
 mod trail;
 
-use memory::send;
+use memory::{ok, send};
 use openworks::Openworks;
 use openworks_core::{Fail, Row, Tx, Value};
 use openworks_db::{equipment, tasks};
@@ -145,9 +145,7 @@ fn at(openworks: &Openworks<&TestHost>, operation: &str, who: &str, body: &str) 
 }
 
 fn done(openworks: &Openworks<&TestHost>, operation: &str, who: &str, body: &str) -> String {
-    let (status, body) = at(openworks, operation, who, body);
-    assert_eq!(status, 200, "{body}");
-    body
+    ok(send(openworks, &format!("/equipment/{operation}"), who, body))
 }
 
 fn thing(openworks: &Openworks<&TestHost>, tag: &str, kind: &str) -> String {
