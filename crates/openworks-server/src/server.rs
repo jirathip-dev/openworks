@@ -11,6 +11,7 @@ use serde_json::{Value as Json, json};
 
 use crate::http::{self, Answer, Asked};
 use crate::issuer::Issuer;
+use crate::routes::{Gate, Own};
 use crate::store::Store;
 use crate::{tokens, web};
 
@@ -77,20 +78,32 @@ impl<'a> Server<'a> {
     /// Answers one request.
     pub fn answer(&self, asked: &Asked) -> Answer {
         let body = String::from_utf8_lossy(&asked.body);
-        match (asked.method.as_str(), asked.path.as_str()) {
-            ("GET", "/auth/config") => Answer::json(
+        let Some(own) = Own::find(&asked.method, &asked.path) else {
+            return match (asked.method.as_str(), asked.path.as_str()) {
+                ("POST", path) => self.route(asked, path, &body),
+                ("GET" | "HEAD", path) => web::file(&self.web, path),
+                _ => Answer::text(405, "not a method this server answers"),
+            };
+        };
+        let caller = match own.gate() {
+            Gate::Anyone => None,
+            Gate::Signed | Gate::Person => self.store.who(asked.bearer()),
+        };
+        if let Some(refused) = own.gate().refuses(caller.as_ref()) {
+            return refused;
+        }
+        match (own, caller.as_ref()) {
+            (Own::Config, _) => Answer::json(
                 200,
                 json!({"issuer": self.issuer.url(), "client_id": self.issuer.client()}).to_string(),
             ),
-            ("POST", "/auth/sign-in") => self.sign_in(&body),
-            ("POST", "/auth/tokens") => self.as_person(asked, |caller| self.mint(caller)),
-            ("POST", "/auth/sign-out") => self.signed(asked, |caller| self.sign_out(caller, asked.bearer())),
-            ("GET", "/openapi.json") => Answer::json(200, self.openworks.openapi()),
-            ("GET", "/inbox") => self.as_person(asked, |caller| self.inbox(caller)),
-            ("POST", path) if path.starts_with("/inbox/") => self.as_person(asked, |caller| self.close(asked, caller)),
-            ("POST", path) => self.route(asked, path, &body),
-            ("GET" | "HEAD", path) => web::file(&self.web, path),
-            _ => Answer::text(405, "not a method this server answers"),
+            (Own::SignIn, _) => self.sign_in(&body),
+            (Own::OpenApi, _) => Answer::json(200, self.openworks.openapi()),
+            (Own::Tokens, Some(caller)) => self.mint(caller),
+            (Own::SignOut, Some(caller)) => self.sign_out(caller, asked.bearer()),
+            (Own::Inbox, Some(caller)) => self.inbox(caller),
+            (Own::Close, Some(caller)) => self.close(asked, caller),
+            (Own::Tokens | Own::SignOut | Own::Inbox | Own::Close, None) => Answer::text(401, "sign in"),
         }
     }
 
@@ -304,23 +317,6 @@ impl<'a> Server<'a> {
             }
         }
         answered(response.status, response.body)
-    }
-
-    fn as_person(&self, asked: &Asked, then: impl FnOnce(&Caller) -> Answer) -> Answer {
-        self.signed(asked, |caller| {
-            if caller.via == Via::Person {
-                then(caller)
-            } else {
-                Answer::text(403, "only the person may do this, not their assistant")
-            }
-        })
-    }
-
-    fn signed(&self, asked: &Asked, then: impl FnOnce(&Caller) -> Answer) -> Answer {
-        match self.store.who(asked.bearer()) {
-            Some(caller) => then(&caller),
-            None => Answer::text(401, "sign in"),
-        }
     }
 
     fn write(&self, mut work: impl FnMut(&mut dyn Tx) -> Result<(), Fail>) -> Result<(), Fail> {
