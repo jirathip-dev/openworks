@@ -1,6 +1,9 @@
+mod common;
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use common::NoFiles;
 use openworks::{Caller, Files, Host, Openworks, Operation, Refused, Request, Response, Via};
 use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
@@ -234,17 +237,6 @@ impl Store {
             }
             _ => Vec::new(),
         }
-    }
-}
-
-struct NoFiles;
-
-impl Files for NoFiles {
-    fn put(&self, _: &str, _: &[u8]) -> Result<(), Fail> {
-        Ok(())
-    }
-    fn get(&self, _: &str) -> Result<Option<Vec<u8>>, Fail> {
-        Ok(None)
     }
 }
 

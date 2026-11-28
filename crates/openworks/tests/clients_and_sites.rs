@@ -1,5 +1,8 @@
+mod common;
+
 use std::cell::{Cell, RefCell};
 
+use common::NoFiles;
 use openworks::{Caller, Files, Host, Openworks, Request, Response, Via};
 use openworks_core::{Fail, Id, Role, Row, Tx, Value};
 use openworks_db::{AUDIT, EVENT, clients, members, sites};
@@ -100,17 +103,6 @@ struct TestHost {
     committed: RefCell<Store>,
     next_id: Cell<u32>,
     clock: Cell<i64>,
-}
-
-struct NoFiles;
-
-impl Files for NoFiles {
-    fn put(&self, _: &str, _: &[u8]) -> Result<(), Fail> {
-        Ok(())
-    }
-    fn get(&self, _: &str) -> Result<Option<Vec<u8>>, Fail> {
-        Ok(None)
-    }
 }
 
 impl Host for &TestHost {
