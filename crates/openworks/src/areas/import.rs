@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use openworks_core::{Call, Declaration, Fail, JobStatus, Tx, Value};
+use openworks_core::{Call, Declaration, Fail, Id, JobStatus, Mount, Reach, Tx, Value};
 use openworks_db::{clients, jobs, projects, sites, stages, tasks};
 
 use crate::clients::{changed, named, optional, org};
 use crate::jobs::{date, window};
 use crate::projects::{first, text};
 use crate::tasks::{count, lasting, planned};
+use crate::{Host, Openworks};
 
 /// Copies a host's existing records by `host_ref`, adding the missing and leaving the rest: one tab-separated line each, after the lines it names, of `client ref name`, `site ref client name address map_url`, `project ref name client site stage`, `job ref project status number starts_on ends_on` or `task ref job code name start_offset days planned_hours`; answers `kind ref id` lines.
 pub const IMPORT: Declaration = openworks_core::write!(
@@ -145,4 +146,15 @@ fn job(status: &str, number: &str, starts_on: &str, ends_on: &str) -> Result<[Va
     let planned = window(date(starts_on)?, date(ends_on)?)?;
     let [starts_on, ends_on] = [planned.starts_on(), planned.ends_on()].map(|day| text(&day.to_string()));
     Ok([text(status), optional(number), starts_on, ends_on])
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/projects", "projects").operation(&IMPORT, Reach::Org)
+}
+
+impl<H: Host> Openworks<H> {
+    /// Copies the records a host already keeps, by `host_ref`, on the host's word; running it twice writes what once did.
+    pub fn import(&self, by: Id, org: Id, records: &str) -> Result<String, Fail> {
+        self.as_host(by, org, &IMPORT, "projects", records)
+    }
 }

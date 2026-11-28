@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Id, Record, Row, Scope, StageKind, Tx, Value, Who, Word};
+use openworks_core::{Call, Declaration, Fail, Id, Mount, Reach, Record, Row, Scope, StageKind, Tx, Value, Who, Word};
 use openworks_db::events::SINCE;
 use openworks_db::project_members::{ADD as ADD_MEMBER, CLEAR, LIST as MEMBERS_SQL};
 use openworks_db::projects::{
@@ -7,7 +7,7 @@ use openworks_db::projects::{
 use openworks_db::{clients, jobs, lost_reasons, members, project_roles, series, sites, stages};
 
 use crate::clients::{changed, lines, named, optional, org};
-use crate::json;
+use crate::router::json;
 use crate::tasks::count;
 
 /// Lists a page of the projects the caller reaches from `stage`, `client_id`, `archived` (yes, no, or empty for both), `limit` (at most 500, 100 when empty) and `offset` lines, each empty filter off, as records of kind `projects`.
@@ -363,4 +363,18 @@ pub(crate) fn record(row: Row, fields: &[&'static str]) -> Result<Record, Fail> 
         }),
         _ => Err(Fail::Store(format!("a row is an id and {}", fields.join(", ")))),
     }
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/projects", "projects")
+        .operation(&LIST, Reach::Org)
+        .operation(&GET, Reach::Org)
+        .operation(&PAGE, Reach::Org)
+        .operation(&CHANGES, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&MOVE_STAGE, Reach::Org)
+        .operation(&LINK, Reach::Org)
+        .operation(&MEMBERS, Reach::Org)
+        .operation(&MEMBERS_SAVE, Reach::Org)
+        .operation(&ARCHIVE, Reach::Org)
 }

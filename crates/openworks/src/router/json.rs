@@ -51,7 +51,7 @@ fn rendered<'a>(record: &'a Record, ext: impl Iterator<Item = (&'a str, String)>
     object(fields)
 }
 
-pub(crate) fn openapi(routes: &HashMap<String, Route>, extensions: &[&'static Extension]) -> String {
+pub(super) fn openapi(routes: &HashMap<String, Route>, extensions: &[&'static Extension]) -> String {
     let mut records = BTreeSet::new();
     let paths: BTreeMap<&str, String> = routes
         .iter()

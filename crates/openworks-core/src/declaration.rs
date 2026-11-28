@@ -206,26 +206,3 @@ macro_rules! closed {
         $crate::Declaration::closed($name, $crate::Word::$word, $handler)
     };
 }
-
-#[macro_export]
-macro_rules! operations {
-    ($($variant:ident => $declaration:path),+ $(,)?) => {
-        /// Every operation this crate declares.
-        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-        pub enum Operation {
-            $($variant),+
-        }
-
-        impl Operation {
-            /// Every operation, in declaration order.
-            pub const ALL: &'static [Operation] = &[$(Operation::$variant),+];
-
-            /// The operation's declaration.
-            pub const fn declaration(self) -> &'static $crate::Declaration {
-                match self {
-                    $(Operation::$variant => &$declaration),+
-                }
-            }
-        }
-    };
-}

@@ -424,6 +424,7 @@ impl Tx for Store {
                 Vec::new()
             }
             project_roles::GET => keyed(&self.roles, p),
+            project_roles::LIST => of_org(&self.roles, &p[0]),
             clients::ADD => {
                 self.clients.push([&p[..4], &[Value::Null]].concat());
                 Vec::new()
@@ -517,6 +518,10 @@ fn the_company_keeps_its_stages_with_a_kind_lost_reasons_and_roles() {
     assert_eq!(
         ok(send(&openworks, "/projects/lost-reasons", "viewer", "")),
         r#"[{"id":"late","name":"Too late","needs_note":0,"ext":{}},{"id":"other","name":"Other","needs_note":1,"ext":{}}]"#
+    );
+    assert_eq!(
+        ok(send(&openworks, "/projects/roles", "viewer", "")),
+        r#"[{"id":"lead","name":"Lead","ext":{}}]"#
     );
     assert_eq!(
         status(&openworks, "/projects/stage-save", "owner", "x\nX\nmaybe"),

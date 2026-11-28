@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Row, Tx, Value, Word};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Row, Tx, Value, Word};
 use openworks_db::{SELECTS, TABLES};
 
 /// Writes the caller's whole company to the host's files as a zip, one CSV per table and every attached file; answers its key.
@@ -117,4 +117,8 @@ fn crc32(data: &[u8]) -> u32 {
             }
         })
     })
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/exports", "exports").operation(&CREATE, Reach::Org)
 }

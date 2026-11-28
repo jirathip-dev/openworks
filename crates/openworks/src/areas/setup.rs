@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Record, StageKind, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Record, StageKind, Tx, Value, Who};
 use openworks_db::{lost_reasons, project_roles, stages};
 
 use crate::clients::{lines, named, org};
@@ -101,4 +101,14 @@ fn keyed(key: &str) -> Result<Value, Fail> {
 
 fn text(value: &str) -> Value {
     Value::Text(value.to_owned())
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/projects", "projects")
+        .operation(&STAGES, Reach::Org)
+        .operation(&STAGE_SAVE, Reach::Org)
+        .operation(&LOST_REASONS, Reach::Org)
+        .operation(&LOST_REASON_SAVE, Reach::Org)
+        .operation(&ROLES, Reach::Org)
+        .operation(&ROLE_SAVE, Reach::Org)
 }

@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use openworks_core::{Call, Declaration, Fail, Record, Row, Tx, Value, Who, Word};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Record, Row, Tx, Value, Who, Word};
 use openworks_db::approvals::REQUEST;
 use openworks_db::job_orders::{
     ADD, ADD_LINE, CLEAR, DRAFT, GET as GET_SQL, ISSUE as ISSUE_SQL, LINES, LIST as LIST_SQL, SUPERSEDE,
@@ -153,4 +153,13 @@ fn with_lines(who: &Who, tx: &mut dyn Tx, mut row: Row) -> Result<Record, Fail> 
     let lines = lines(who, tx, &row)?.join("\n");
     row.push(text(&lines));
     record(row, &FIELDS)
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/job-orders", "job_orders")
+        .operation(&LIST, Reach::Org)
+        .operation(&GET, Reach::Org)
+        .operation(&PRINT, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&ISSUE, Reach::Org)
 }

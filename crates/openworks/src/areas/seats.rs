@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use openworks_core::{Call, Declaration, Fail, Record, Tx, Value, Who, Word};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Record, Tx, Value, Who, Word};
 use openworks_db::jobs::GET as JOB;
 use openworks_db::seats::{
     ADD, ADD_DAY, BOOKED as BOOKED_SQL, CLEAR, DAYS, GET, HELD, LIST as LIST_SQL, SAVE as SAVE_SQL,
@@ -132,4 +132,12 @@ fn booked(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
         reaching(who, Word::Read),
     ];
     records(tx.run(BOOKED_SQL, &params)?, &["job_id", "worker_id", "day"])
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/seats", "seats")
+        .operation(&LIST, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&SET_DAYS, Reach::Org)
+        .operation(&BOOKED, Reach::Org)
 }

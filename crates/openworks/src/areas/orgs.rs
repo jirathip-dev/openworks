@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Id, Record, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Id, Mount, Reach, Record, Tx, Value, Who};
 use openworks_db::orgs::{LIST as LIST_SQL, RENAME as RENAME_SQL};
 
 /// Lists the caller's orgs as records of kind `orgs`.
@@ -30,4 +30,10 @@ fn rename(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
         &[Value::Text(call.who.org.0.clone()), Value::Text(name.to_owned())],
     )?;
     Ok(name.to_owned())
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/orgs", "orgs")
+        .operation(&LIST, Reach::Org)
+        .operation(&RENAME, Reach::Org)
 }

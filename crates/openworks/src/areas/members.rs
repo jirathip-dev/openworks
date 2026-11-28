@@ -1,5 +1,8 @@
-use openworks_core::{Call, Declaration, Fail, Role, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Id, Mount, Reach, Role, Tx, Value, Who};
 use openworks_db::members::{HOLDING, LIST as LIST_SQL, REMOVE as REMOVE_SQL, SET as SET_SQL};
+
+use crate::router::address;
+use crate::{Host, Openworks};
 
 /// Lists the org's members, one `email role` a line.
 pub const LIST: Declaration = openworks_core::read!("members", needs: Read, queries: [LIST_SQL], list).by_hand();
@@ -63,16 +66,20 @@ fn keep_an_owner(who: &Who, tx: &mut dyn Tx, email: &str, becomes: Role) -> Resu
     }
 }
 
-/// An email as members are keyed by it: trimmed and lowercased.
-pub fn address(text: &str) -> Result<String, Fail> {
-    let email = text.trim().to_lowercase();
-    if email.contains('@') && !email.contains(char::is_whitespace) {
-        Ok(email)
-    } else {
-        Err(Fail::Invalid(format!("not an email: {email}")))
-    }
-}
-
 fn org(who: &Who) -> Value {
     Value::Text(who.org.0.clone())
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/orgs", "orgs")
+        .operation(&LIST, Reach::Org)
+        .operation(&SET, Reach::Org)
+        .operation(&REMOVE, Reach::Org)
+}
+
+impl<H: Host> Openworks<H> {
+    /// Adds a member to an org by email, or changes their role, on the host's word; `by` is who made the change.
+    pub fn set_member(&self, by: Id, org: Id, email: &str, role: Role) -> Result<String, Fail> {
+        self.as_host(by, org, &SET, "orgs", &format!("{email} {}", role.name()))
+    }
 }

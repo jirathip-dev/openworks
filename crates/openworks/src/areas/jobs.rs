@@ -1,5 +1,6 @@
 use openworks_core::{
-    Call, Date, Declaration, Fail, JobStatus, JobStep, Record, Row, StageKind, Tx, Value, Who, Window, Word, WorkDays,
+    Call, Date, Declaration, Fail, JobStatus, JobStep, Mount, Reach, Record, Row, StageKind, Tx, Value, Who, Window,
+    Word, WorkDays,
 };
 use openworks_db::jobs::{GET as GET_SQL, LIST as LIST_SQL, MOVE, PLAN, SAVE as SAVE_SQL};
 use openworks_db::{projects, series, stages};
@@ -249,4 +250,16 @@ fn day(day: &str) -> Result<Value, Fail> {
     } else {
         Ok(text(&date(day)?.to_string()))
     }
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/jobs", "jobs")
+        .operation(&LIST, Reach::Org)
+        .operation(&GET, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&RESCHEDULE, Reach::Org)
+        .operation(&OPEN, Reach::Org)
+        .operation(&FINISH, Reach::Org)
+        .operation(&REOPEN, Reach::Org)
+        .operation(&CANCEL, Reach::Org)
 }

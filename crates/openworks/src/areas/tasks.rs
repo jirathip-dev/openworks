@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Hours, Record, Row, Tx, Value, Who, Word};
+use openworks_core::{Call, Declaration, Fail, Hours, Mount, Reach, Record, Row, Tx, Value, Who, Word};
 use openworks_db::jobs::GET as JOB;
 use openworks_db::projects::GET as PROJECT;
 use openworks_db::tasks::{
@@ -225,4 +225,13 @@ fn colour(value: &str) -> Result<Value, Fail> {
     } else {
         Err(Fail::Invalid(format!("a colour is #rrggbb, not {value}")))
     }
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/tasks", "tasks")
+        .operation(&LIST, Reach::Org)
+        .operation(&BY_PROJECT, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&ARCHIVE, Reach::Org)
+        .operation(&RESTORE, Reach::Org)
 }

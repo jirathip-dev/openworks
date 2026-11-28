@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use openworks_core::{Declaration, Fail, Readiness, Record, Row, Tx, Value, Who, Window, Word};
+use openworks_core::{Declaration, Fail, Mount, Reach, Readiness, Record, Row, Tx, Value, Who, Window, Word};
 use openworks_db::equipment::NEEDS;
 use openworks_db::jobs::BOARD as BOARD_SQL;
 use openworks_db::seats::{BOOKED, LIST as SEATS};
@@ -90,4 +90,8 @@ fn at(row: &Row, index: usize) -> Value {
 
 fn count(n: usize) -> Value {
     Value::Int(i64::try_from(n).unwrap_or(i64::MAX))
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/jobs", "jobs").operation(&BOARD, Reach::Org)
 }

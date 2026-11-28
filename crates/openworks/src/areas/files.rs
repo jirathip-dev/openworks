@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Row, Tx, Value};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Row, Tx, Value};
 use openworks_db::attachments::{ADD, LIST as LIST_SQL};
 
 /// Stores the body's file through the host's files under its tag; the body is the tag, the name, then the content, a line each.
@@ -59,4 +59,10 @@ pub(crate) fn lines(rows: &[Row]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/files", "files")
+        .operation(&ATTACH, Reach::Org)
+        .operation(&LIST, Reach::Org)
 }

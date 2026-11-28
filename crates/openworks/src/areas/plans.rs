@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Record, Row, Tx, Value, Who, Word};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Record, Row, Tx, Value, Who, Word};
 use openworks_db::jobs::GET as JOB;
 use openworks_db::plans::{
     GROUP_ADD, GROUP_SAVE, GROUPS as GROUPS_SQL, KEEP, LINK, TEMPLATE, TEMPLATE_ADD, TEMPLATE_SAVE,
@@ -219,4 +219,15 @@ fn snapshot(row: &Row) -> String {
         field(8),
         field(10)
     )
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/plans", "plans")
+        .operation(&GROUPS, Reach::Org)
+        .operation(&GROUPS_SAVE, Reach::Org)
+        .operation(&VERSIONS, Reach::Org)
+        .operation(&RESTORE_VERSION, Reach::Org)
+        .operation(&TEMPLATES, Reach::Org)
+        .operation(&TEMPLATES_SAVE, Reach::Org)
+        .operation(&REPLACE_FROM_TEMPLATE, Reach::Org)
 }

@@ -97,6 +97,11 @@ impl Mount {
         self.prefix
     }
 
+    /// The path of a declared operation: the prefix, a slash and its name.
+    pub fn path(&self, declaration: &Declaration) -> String {
+        format!("{}/{}", self.prefix, declaration.name())
+    }
+
     /// The extension key.
     pub fn key(&self) -> &'static str {
         self.key

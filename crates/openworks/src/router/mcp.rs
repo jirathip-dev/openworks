@@ -2,7 +2,7 @@ use std::io::{self, BufRead, Lines, Write};
 
 use openworks_core::{Offer, Via};
 
-use crate::json::text;
+use crate::router::json::text;
 use crate::{Host, Openworks, Request, Tool};
 
 use parse::Json;

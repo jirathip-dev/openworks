@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Record, Tx, Who};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Record, Tx, Who};
 use openworks_db::teams::{ADD, LIST as LIST_SQL, SAVE as SAVE_SQL};
 
 use crate::clients::{changed, lines, named, org};
@@ -23,4 +23,10 @@ fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
         return Ok(id);
     }
     changed(tx.run(SAVE_SQL, &[org(call.who), text(id), name])?)
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/teams", "teams")
+        .operation(&LIST, Reach::Org)
+        .operation(&SAVE, Reach::Org)
 }

@@ -1,7 +1,9 @@
-use openworks_core::{Call, Declaration, Fail, Id, Record, Row, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Id, Mount, Reach, Record, Row, Tx, Value, Who};
 use openworks_db::clients::{
     ADD, DEACTIVATE as DEACTIVATE_SQL, GET as GET_SQL, LIST as LIST_SQL, SAVE as SAVE_SQL, SYNC as SYNC_SQL,
 };
+
+use crate::{Host, Openworks};
 
 /// Lists the org's clients as records of kind `clients`.
 pub const LIST: Declaration = openworks_core::list!("list", needs: Read, record: "clients", queries: [LIST_SQL], list);
@@ -115,4 +117,20 @@ pub(crate) fn changed(rows: Vec<Row>) -> Result<String, Fail> {
 
 pub(crate) fn org(who: &Who) -> Value {
     Value::Text(who.org.0.clone())
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/clients", "clients")
+        .operation(&LIST, Reach::Org)
+        .operation(&GET, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&DEACTIVATE, Reach::Org)
+        .operation(&SYNC, Reach::Org)
+}
+
+impl<H: Host> Openworks<H> {
+    /// Adds the client the host knows by `host_ref`, or renames it, on the host's word; answers the client's id.
+    pub fn sync_client(&self, by: Id, org: Id, host_ref: &str, name: &str) -> Result<String, Fail> {
+        self.as_host(by, org, &SYNC, "clients", &format!("{host_ref}\n{name}"))
+    }
 }

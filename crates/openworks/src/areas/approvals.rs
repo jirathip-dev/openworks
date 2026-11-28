@@ -1,4 +1,4 @@
-use openworks_core::{Approval, Call, Declaration, Fail, Tx, Value, Via, Who, Word};
+use openworks_core::{Approval, Call, Declaration, Fail, Mount, Reach, Tx, Value, Via, Who, Word};
 use openworks_db::approvals::{
     DECIDE as DECIDE_SQL, KIND, OPEN, PENDING as PENDING_SQL, PROPOSE, RECENT as RECENT_SQL, REQUEST as REQUEST_SQL,
     RESET as RESET_SQL, SAVE_KIND as SAVE_KIND_SQL,
@@ -196,4 +196,14 @@ fn text(text: &str) -> Value {
 
 fn org(who: &Who) -> Value {
     Value::Text(who.org.0.clone())
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/approvals", "approvals")
+        .operation(&SAVE_KIND, Reach::Org)
+        .operation(&REQUEST, Reach::Org)
+        .operation(&DECIDE, Reach::Org)
+        .operation(&RESET, Reach::Org)
+        .operation(&PENDING, Reach::Org)
+        .operation(&RECENT, Reach::Org)
 }

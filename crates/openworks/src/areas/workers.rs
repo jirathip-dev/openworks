@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Record, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Record, Tx, Value, Who};
 use openworks_db::teams::GET as TEAM;
 use openworks_db::workers::{
     ADD, GET as GET_SQL, LIST as LIST_SQL, ME as ME_SQL, SAVE as SAVE_SQL, SET_ACTIVE as SET_ACTIVE_SQL,
@@ -81,4 +81,13 @@ fn set_active(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
         _ => return Err(Fail::Invalid("active is yes or no".to_owned())),
     };
     changed(tx.run(SET_ACTIVE_SQL, &[org(call.who), text(id), Value::Int(active)])?)
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/workers", "workers")
+        .operation(&LIST, Reach::Org)
+        .operation(&GET, Reach::Org)
+        .operation(&ME, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&SET_ACTIVE, Reach::Org)
 }

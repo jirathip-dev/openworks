@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Record, Tx, Value, Who, Window, Word};
+use openworks_core::{Call, Declaration, Fail, Mount, Reach, Record, Tx, Value, Who, Window, Word};
 use openworks_db::equipment::{
     ADD, BOOK, BOOKING, CANCEL as CANCEL_SQL, CLASHES, FILL, GET_NEED, LIST as LIST_SQL, LOCK, NEED as NEED_SQL,
     NEEDS as NEEDS_SQL, RELEASE, SAVE as SAVE_SQL, TIMELINE as TIMELINE_SQL,
@@ -220,4 +220,16 @@ fn booked(
     ];
     tx.run(BOOK, &params)?;
     Ok(id)
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/equipment", "equipment")
+        .operation(&LIST, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&BOOK_THING, Reach::Org)
+        .operation(&FILL_NEED, Reach::Org)
+        .operation(&CANCEL, Reach::Org)
+        .operation(&NEED, Reach::Org)
+        .operation(&NEEDS, Reach::Org)
+        .operation(&TIMELINE, Reach::Org)
 }

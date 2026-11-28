@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Id, Record, Row, Tx, Value, Who};
+use openworks_core::{Call, Declaration, Fail, Id, Mount, Reach, Record, Row, Tx, Value, Who};
 use openworks_db::clients::GET as CLIENT;
 use openworks_db::sites::{ADD, DEACTIVATE as DEACTIVATE_SQL, GET as GET_SQL, LIST as LIST_SQL, SAVE as SAVE_SQL};
 
@@ -74,4 +74,12 @@ fn record(row: Row) -> Result<Record, Fail> {
             "a site row is its id, client_id, name, address, map_url and deactivated_at".to_owned(),
         )),
     }
+}
+
+pub(crate) fn mount() -> Mount {
+    Mount::new("/sites", "sites")
+        .operation(&LIST, Reach::Org)
+        .operation(&GET, Reach::Org)
+        .operation(&SAVE, Reach::Org)
+        .operation(&DEACTIVATE, Reach::Org)
 }
