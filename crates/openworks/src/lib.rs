@@ -14,6 +14,7 @@ use operations::{CLIENTS, KEY};
 mod approvals;
 mod clients;
 mod due;
+mod equipment;
 mod exports;
 mod files;
 mod idempotency;

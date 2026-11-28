@@ -1,7 +1,8 @@
 use openworks_core::{Mount, Reach};
 
 use crate::{
-    approvals, clients, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks, teams, workers,
+    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks,
+    teams, workers,
 };
 
 openworks_core::operations! {
@@ -63,6 +64,14 @@ openworks_core::operations! {
     TaskSave => tasks::SAVE,
     TaskArchive => tasks::ARCHIVE,
     TaskRestore => tasks::RESTORE,
+    EquipmentList => equipment::LIST,
+    EquipmentSave => equipment::SAVE,
+    EquipmentBook => equipment::BOOK_THING,
+    EquipmentFill => equipment::FILL_NEED,
+    EquipmentCancel => equipment::CANCEL,
+    EquipmentNeed => equipment::NEED,
+    EquipmentNeeds => equipment::NEEDS,
+    EquipmentTimeline => equipment::TIMELINE,
     ExportCreate => exports::CREATE,
     WorkerList => workers::LIST,
     WorkerGet => workers::GET,
@@ -77,7 +86,7 @@ pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 12] = [
+const HOMES: [(&str, &str); 13] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -87,6 +96,7 @@ const HOMES: [(&str, &str); 12] = [
     ("/jobs", "jobs"),
     ("/job-orders", "job_orders"),
     ("/tasks", "tasks"),
+    ("/equipment", "equipment"),
     ("/exports", "exports"),
     ("/workers", "workers"),
     ("/teams", "teams"),
@@ -123,6 +133,14 @@ impl Operation {
             Self::TaskList | Self::TaskByProject | Self::TaskSave | Self::TaskArchive | Self::TaskRestore => {
                 ("/tasks", "tasks")
             }
+            Self::EquipmentList
+            | Self::EquipmentSave
+            | Self::EquipmentBook
+            | Self::EquipmentFill
+            | Self::EquipmentCancel
+            | Self::EquipmentNeed
+            | Self::EquipmentNeeds
+            | Self::EquipmentTimeline => ("/equipment", "equipment"),
             Self::ExportCreate => ("/exports", "exports"),
             Self::WorkerList | Self::WorkerGet | Self::WorkerMe | Self::WorkerSave | Self::WorkerSetActive => {
                 ("/workers", "workers")
