@@ -1,5 +1,5 @@
 about = "the four crates and openworks-web package and build as their registries would take them: cargo publish --dry-run, npm publish --dry-run"
 fix = "make the package the gate names publishable: a file it needs from outside its folder, a path dependency without a version, a missing description"
 budget_secs = 240
-run = "cargo publish --workspace --exclude openworks-pack-example --dry-run --locked && npm publish -w web --dry-run"
+run = "rm -rf \"${CARGO_HOME:-$HOME/.cargo}\"/registry/src/-*/openworks-* && cargo clean -p openworks-core -p openworks-db -p openworks -p openworks-server && cargo publish --workspace --exclude openworks-pack-example --dry-run --locked && npm publish -w web --dry-run"
 leg = "surface"
