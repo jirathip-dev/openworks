@@ -94,8 +94,6 @@ fn live_state(row: &Row) -> bool {
 impl Store {
     fn approval_rows(&mut self, sql: &'static str, params: &[Value]) -> Option<Vec<Row>> {
         let p = |at: usize| params[at].clone();
-        let text = |text: &str| Value::Text(text.to_owned());
-        let live = |row: &Row| row[1] == p(1) && row[4] == text("pending");
         let pick = |rows: &mut dyn Iterator<Item = &Row>, columns: [usize; 7]| -> Vec<Row> {
             rows.map(|row| columns.iter().map(|&at| row[at].clone()).collect())
                 .collect()
