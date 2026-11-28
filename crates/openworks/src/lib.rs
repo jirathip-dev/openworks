@@ -11,6 +11,7 @@ pub use series::{Period, Series};
 mod approvals;
 mod clients;
 mod due;
+mod exports;
 mod files;
 mod idempotency;
 mod job_orders;
@@ -75,13 +76,14 @@ openworks_core::operations! {
     JobOrderPrint => job_orders::PRINT,
     JobOrderSave => job_orders::SAVE,
     JobOrderIssue => job_orders::ISSUE,
+    ExportCreate => exports::CREATE,
 }
 
 const KEY: &str = "orgs";
 
 const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 8] = [
+const HOMES: [(&str, &str); 9] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -90,6 +92,7 @@ const HOMES: [(&str, &str); 8] = [
     ("/projects", "projects"),
     ("/jobs", "jobs"),
     ("/job-orders", "job_orders"),
+    ("/exports", "exports"),
 ];
 
 impl Operation {
@@ -119,6 +122,7 @@ impl Operation {
             Self::JobOrderList | Self::JobOrderGet | Self::JobOrderPrint | Self::JobOrderSave | Self::JobOrderIssue => {
                 ("/job-orders", "job_orders")
             }
+            Self::ExportCreate => ("/exports", "exports"),
             _ => ("/projects", "projects"),
         }
     }

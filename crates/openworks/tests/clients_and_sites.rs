@@ -1,4 +1,3 @@
-mod common;
 mod memory;
 
 use memory::{T0, ok, send};
