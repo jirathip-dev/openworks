@@ -8,8 +8,8 @@ use memory::{T0, ok, send};
 use openworks::Openworks;
 use openworks_core::{Fail, Hours, Id, Role, Row, Tx, Value};
 use openworks_db::{
-    AUDIT, EVENT, clients, events, jobs, lost_reasons, members, project_members, project_roles, projects, series,
-    sites, stages, tasks,
+    AUDIT, EVENT, clients, events, jobs, lost_reasons, members, plans, project_members, project_roles, projects,
+    series, sites, stages, tasks,
 };
 
 #[derive(Clone, Default)]
@@ -23,6 +23,10 @@ struct Store {
     staffed: Vec<Row>,
     jobs: Vec<Row>,
     tasks: Vec<Row>,
+    groups: Vec<Row>,
+    links: Vec<Row>,
+    templates: Vec<Row>,
+    versions: Vec<Row>,
     numbers: HashMap<String, i64>,
     events: Vec<Value>,
     trail: Vec<Row>,
@@ -328,6 +332,58 @@ fn sorted<'a>(rows: impl Iterator<Item = &'a Row>, key: impl Fn(&Row) -> String)
     rows
 }
 
+fn on_job(table: &[Row], p: &[Value], sort: usize) -> Vec<Row> {
+    let mut rows: Vec<Row> = table
+        .iter()
+        .filter(|row| row[0] == p[0] && row[2] == p[1])
+        .map(|row| row[1..].to_vec())
+        .collect();
+    rows.sort_by_key(|row| int(&row[sort]));
+    rows
+}
+
+impl Store {
+    fn plan_rows(&mut self, sql: &'static str, p: &[Value]) -> Option<Vec<Row>> {
+        let linked = |group: &Value| {
+            let mut ids: Vec<&str> = self
+                .links
+                .iter()
+                .filter(|link| link[1] == *group)
+                .filter_map(|link| day(&link[2]))
+                .collect();
+            ids.sort_unstable();
+            text(&ids.join(","))
+        };
+        Some(match sql {
+            plans::GROUPS => on_job(&self.groups, p, 3)
+                .into_iter()
+                .map(|row| [&row[..], &[linked(&row[0])]].concat())
+                .collect(),
+            plans::GROUP_SAVE => change(&mut self.groups, p, |row| row[3..5].clone_from_slice(&p[3..5])),
+            plans::TEMPLATE_SAVE => change(&mut self.templates, p, |row| row[2..4].clone_from_slice(&p[2..4])),
+            plans::TEMPLATES => of_org(&self.templates, &p[0]),
+            plans::TEMPLATE => keyed(&self.templates, p),
+            plans::VERSION => keyed(&self.versions, p),
+            plans::VERSIONS => on_job(&self.versions, p, 2),
+            plans::UNLINK => {
+                self.links.retain(|link| link[..2] != p[..2]);
+                Vec::new()
+            }
+            _ => {
+                let table = match sql {
+                    plans::GROUP_ADD => &mut self.groups,
+                    plans::TEMPLATE_ADD => &mut self.templates,
+                    plans::KEEP => &mut self.versions,
+                    plans::LINK => &mut self.links,
+                    _ => return None,
+                };
+                table.push(p.to_vec());
+                Vec::new()
+            }
+        })
+    }
+}
+
 impl Tx for Store {
     fn run(&mut self, sql: &'static str, p: &[Value]) -> Result<Vec<Row>, Fail> {
         Ok(match sql {
@@ -378,7 +434,11 @@ impl Tx for Store {
                 Vec::new()
             }
             sites::GET => keyed(&self.sites, p),
-            _ => match self.reads(sql, p).or_else(|| self.imports(sql, p)) {
+            _ => match self
+                .reads(sql, p)
+                .or_else(|| self.plan_rows(sql, p))
+                .or_else(|| self.imports(sql, p))
+            {
                 Some(rows) => rows,
                 None => self.project_rows(sql, p),
             },
@@ -1144,6 +1204,175 @@ fn only_a_task_with_no_reported_hours_may_be_archived() {
     assert!(Hours::ZERO.lets_archive());
     assert!(!Hours::hundredths(25).unwrap().lets_archive());
     assert_eq!(Hours::hundredths(-1), None);
+}
+
+fn plan(openworks: &Openworks<&TestHost>, path: &str, body: &str) -> (u16, String) {
+    status(openworks, &format!("/plans/{path}"), "owner", body)
+}
+
+fn live(openworks: &Openworks<&TestHost>, job: &str) -> Vec<String> {
+    let listed = tasks(openworks, "owner", job);
+    let live = listed
+        .split(r#""code":""#)
+        .skip(1)
+        .filter(|task| task.contains(r#""archived_at":null"#));
+    live.map(|task| task.split('"').next().unwrap().to_owned()).collect()
+}
+
+#[test]
+fn a_job_groups_its_tasks_in_order() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let job = job(&openworks, &project(&openworks, "Hall"));
+    let saved = ok(send(
+        &openworks,
+        "/tasks/save",
+        "owner",
+        &format!("{job}\n\tA\tA\t\t\t\t\t\t\t\n\tB\tB\t\t\t\t\t\t\t"),
+    ));
+    let [dig, pour] = saved.split('\n').collect::<Vec<_>>()[..] else {
+        panic!("{saved}")
+    };
+
+    let (_, grouped) = plan(
+        &openworks,
+        "groups-save",
+        &format!("{job}\n\tGround\t{pour}, {dig}\n\tLater\t"),
+    );
+
+    let [ground, later] = grouped.split('\n').collect::<Vec<_>>()[..] else {
+        panic!("{grouped}")
+    };
+    let group = |id: &str, name: &str, order: u8, tasks: &str| {
+        format!(r#"{{"id":"{id}","job_id":"{job}","name":"{name}","order":{order},"tasks":"{tasks}","ext":{{}}}}"#)
+    };
+    let listed = || ok(send(&openworks, "/plans/groups", "viewer", &job));
+    assert_eq!(
+        listed(),
+        format!(
+            "[{},{}]",
+            group(ground, "Ground", 1, &format!("{dig},{pour}")),
+            group(later, "Later", 2, "")
+        )
+    );
+    plan(
+        &openworks,
+        "groups-save",
+        &format!("{job}\n{later}\tFirst\t{dig}\n{ground}\tGround\t{pour}"),
+    );
+    assert_eq!(
+        listed(),
+        format!(
+            "[{},{}]",
+            group(later, "First", 1, dig),
+            group(ground, "Ground", 2, pour)
+        )
+    );
+    let other = self::job(&openworks, &project(&openworks, "Other"));
+    let theirs = ok(send(
+        &openworks,
+        "/tasks/save",
+        "owner",
+        &format!("{other}\n\tA\tA\t\t\t\t\t\t\t"),
+    ));
+    let refused = plan(&openworks, "groups-save", &format!("{job}\n{ground}\tGround\t{theirs}"));
+    assert_eq!(refused, (400, format!("invalid: task {theirs} is not on job {job}")));
+    let refused = plan(&openworks, "groups-save", &format!("{job}\n\tGround"));
+    assert_eq!(
+        refused,
+        (400, "invalid: a group line is 3 tab-separated fields".to_owned())
+    );
+}
+
+#[test]
+fn replacing_a_plan_keeps_the_old_one_as_a_numbered_version_with_what_it_came_from() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let job = job(&openworks, &project(&openworks, "Hall"));
+    ok(send(
+        &openworks,
+        "/tasks/save",
+        "owner",
+        &format!("{job}\n\tDIG\tDig\t#aa5500\t1\t2\t1650\t2500\t\tby hand"),
+    ));
+    let (_, template) = plan(
+        &openworks,
+        "templates-save",
+        "\nFrame\n\tPOST\tPosts\t\t0\t2\t800\t\t\t\n\tBEAM\tBeams\t\t2\t1\t\t\t\t",
+    );
+    let framed = r#""plan":"\u0009POST\u0009Posts\u0009\u00090\u00092\u0009800\u0009\u0009\u0009\u000a\u0009BEAM\u0009Beams\u0009\u00092\u00091\u0009\u0009\u0009\u0009""#;
+    let templates = ok(send(&openworks, "/plans/templates", "viewer", ""));
+    assert_eq!(
+        templates,
+        format!(r#"[{{"id":"{template}","name":"Frame",{framed},"ext":{{}}}}]"#)
+    );
+    host.set_clock(5);
+
+    let (_, first) = plan(&openworks, "replace-from-template", &format!("{job}\n{template}"));
+
+    assert_eq!(live(&openworks, &job), ["POST", "BEAM"]);
+    let dug = r#""plan":"\u0009DIG\u0009Dig\u0009#aa5500\u00091\u00092\u00091650\u00092500\u0009\u0009by hand""#;
+    let version = |id: &str, number: u8, came_from: &str, replaced_by: &str, plan: &str, at: i64| {
+        format!(
+            r#"{{"id":"{id}","job_id":"{job}","number":{number},"came_from":{came_from},"replaced_by":"{replaced_by}",{plan},"at":{},"ext":{{}}}}"#,
+            T0 + at
+        )
+    };
+    let replaced = format!("template {template}");
+    let one = version(&first, 1, "null", &replaced, dug, 5);
+    assert_eq!(
+        ok(send(&openworks, "/plans/versions", "viewer", &job)),
+        format!("[{one}]")
+    );
+
+    host.set_clock(9);
+    let (_, second) = plan(&openworks, "restore-version", &first);
+
+    assert_eq!(live(&openworks, &job), ["DIG"]);
+    let restored = r##""code":"DIG","name":"Dig","color":"#aa5500","start_offset":1,"days":2,"planned_hours":1650,"weight":2500,"order":4,"remark":"by hand","archived_at":null"##;
+    assert!(tasks(&openworks, "owner", &job).contains(restored));
+    let two = version(&second, 2, &format!(r#""{replaced}""#), "version 1", framed, 9);
+    assert_eq!(
+        ok(send(&openworks, "/plans/versions", "owner", &job)),
+        format!("[{one},{two}]")
+    );
+}
+
+#[test]
+fn a_plan_is_replaced_only_from_a_template_the_company_keeps() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let job = job(&openworks, &project(&openworks, "Hall"));
+    let (_, template) = plan(&openworks, "templates-save", "\nFrame\n\tPOST\tPosts\t\t\t\t\t\t\t");
+
+    let refused = plan(&openworks, "templates-save", "\nFrame\nt1\tPOST\tPosts\t\t\t\t\t\t\t");
+    assert_eq!(
+        refused,
+        (400, "invalid: a template's task line leaves its id empty".to_owned())
+    );
+    let renamed = plan(
+        &openworks,
+        "templates-save",
+        &format!("{template}\nFrame two\n\tBEAM\tBeams\t\t\t\t\t\t\t"),
+    );
+    assert_eq!(renamed, (200, template.clone()));
+    assert!(ok(send(&openworks, "/plans/templates", "owner", "")).contains(r#""name":"Frame two","plan":"\u0009BEAM"#));
+    assert_eq!(
+        plan(&openworks, "replace-from-template", &format!("{job}\nnone")).0,
+        404
+    );
+    assert_eq!(plan(&openworks, "restore-version", "none").0, 404);
+    let theirs = status(
+        &openworks,
+        "/plans/replace-from-template",
+        "other",
+        &format!("{job}\n{template}"),
+    );
+    assert_eq!(theirs.0, 404);
+    assert_eq!(ok(send(&openworks, "/plans/versions", "owner", &job)), "[]");
 }
 
 fn ids(listed: &str) -> Vec<String> {

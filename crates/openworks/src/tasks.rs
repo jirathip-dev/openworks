@@ -43,7 +43,7 @@ const FIELDS: [&str; 11] = [
     "archived_at",
 ];
 
-const JOB_ID: usize = 1;
+pub(crate) const JOB_ID: usize = 1;
 const ORDER: usize = 9;
 
 fn list(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
@@ -59,11 +59,55 @@ fn by_project(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fai
     records(tx.run(BY_PROJECT_SQL, &[org(who), text(id)])?, &FIELDS)
 }
 
+pub(crate) struct Line<'a> {
+    pub(crate) id: &'a str,
+    order: Option<i64>,
+    values: [Value; 8],
+}
+
+pub(crate) fn line(line: &str) -> Result<Line<'_>, Fail> {
+    let fields: Vec<&str> = line.split('\t').map(str::trim).collect();
+    let [id, code, name, color, offset, days, hours, weight, order, remark] = fields[..] else {
+        return Err(Fail::Invalid("a task line is 10 tab-separated fields".to_owned()));
+    };
+    let offset = if offset.is_empty() {
+        0
+    } else {
+        count("start_offset", offset)?
+    };
+    Ok(Line {
+        id,
+        order: if order.is_empty() {
+            None
+        } else {
+            Some(count("order", order)?)
+        },
+        values: [
+            text(code),
+            named(name)?,
+            colour(color)?,
+            Value::Int(offset),
+            lasting(days)?,
+            planned(hours)?,
+            optional_count("weight", weight)?,
+            text(remark),
+        ],
+    })
+}
+
 fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
-    let who = call.who;
     let mut body = call.body.lines();
     let job_id = body.next().unwrap_or("").trim();
-    job(who, tx, job_id, Word::Write)?;
+    job(call.who, tx, job_id, Word::Write)?;
+    let lines = body
+        .filter(|line| !line.trim().is_empty())
+        .map(line)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(put(call, tx, job_id, lines)?.join("\n"))
+}
+
+pub(crate) fn put(call: &Call, tx: &mut dyn Tx, job_id: &str, lines: Vec<Line>) -> Result<Vec<String>, Fail> {
+    let who = call.who;
     let mut last = tx
         .run(LIST_SQL, &[org(who), text(job_id)])?
         .iter()
@@ -74,39 +118,28 @@ fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
         .max()
         .unwrap_or(0);
     let mut saved = Vec::new();
-    for line in body.filter(|line| !line.trim().is_empty()) {
-        let fields: Vec<&str> = line.split('\t').map(str::trim).collect();
-        let [id, code, name, color, offset, days, hours, weight, order, remark] = fields[..] else {
-            return Err(Fail::Invalid("a task line is 10 tab-separated fields".to_owned()));
-        };
-        let order = match order {
-            "" => last + 1,
-            order => count("order", order)?,
-        };
+    for Line { id, order, values } in lines {
+        let order = order.unwrap_or(last + 1);
         last = last.max(order);
         let adds = id.is_empty();
         if !adds && plain(task(who, tx, id)?.get(JOB_ID)) != job_id {
             return Err(Fail::Invalid(format!("task {id} is not on job {job_id}")));
         }
         let id = if adds { (call.fresh)().0 } else { id.to_owned() };
-        let offset = if offset.is_empty() {
-            0
-        } else {
-            count("start_offset", offset)?
-        };
+        let [code, name, colour, offset, days, hours, weight, remark] = values;
         let params = [
             org(who),
             text(&id),
             text(job_id),
-            text(code),
-            named(name)?,
-            colour(color)?,
-            Value::Int(offset),
-            lasting(days)?,
-            planned(hours)?,
-            optional_count("weight", weight)?,
+            code,
+            name,
+            colour,
+            offset,
+            days,
+            hours,
+            weight,
             Value::Int(order),
-            text(remark),
+            remark,
         ];
         if adds {
             tx.run(ADD, &params)?;
@@ -115,12 +148,16 @@ fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
             saved.push(changed(tx.run(SAVE_SQL, &params)?)?);
         }
     }
-    Ok(saved.join("\n"))
+    Ok(saved)
 }
 
 fn archive(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     let id = call.body.trim();
     task(call.who, tx, id)?;
+    retire(call, tx, id)
+}
+
+pub(crate) fn retire(call: &Call, tx: &mut dyn Tx, id: &str) -> Result<String, Fail> {
     // TODO(#19)
     let reported = Hours::ZERO;
     if !reported.lets_archive() {
@@ -135,11 +172,11 @@ fn restore(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     changed(tx.run(RESTORE_SQL, &[org(call.who), text(id)])?)
 }
 
-fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
+pub(crate) fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
     first(tx.run(JOB, &[org(who), text(id), reaching(who, word)])?)
 }
 
-fn task(who: &Who, tx: &mut dyn Tx, id: &str) -> Result<Row, Fail> {
+pub(crate) fn task(who: &Who, tx: &mut dyn Tx, id: &str) -> Result<Row, Fail> {
     first(tx.run(GET_SQL, &[org(who), text(id), reaching(who, Word::Write)])?)
 }
 

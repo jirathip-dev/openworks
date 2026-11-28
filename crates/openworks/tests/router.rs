@@ -9,8 +9,8 @@ use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
 use openworks_db::{
-    approvals, attachments, clients, equipment, idempotency, job_orders, jobs, members, projects, seats, sites, stages,
-    tasks, workers,
+    approvals, attachments, clients, equipment, idempotency, job_orders, jobs, members, plans, projects, seats, sites,
+    stages, tasks, workers,
 };
 
 type Statement = (&'static str, Vec<Value>);
@@ -117,9 +117,21 @@ impl Tx for Store {
 fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
     match sql {
         jobs::GET => Some(vec![job(&params[1])]),
-        jobs::SAVE | jobs::PLAN | jobs::MOVE | job_orders::ISSUE | tasks::SAVE | tasks::ARCHIVE | tasks::RESTORE => {
-            Some(vec![vec![params[1].clone()]])
-        }
+        jobs::SAVE
+        | jobs::PLAN
+        | jobs::MOVE
+        | job_orders::ISSUE
+        | tasks::SAVE
+        | tasks::ARCHIVE
+        | tasks::RESTORE
+        | plans::GROUP_SAVE
+        | plans::TEMPLATE
+        | workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
+        plans::VERSION => Some(vec![vec![
+            params[1].clone(),
+            Value::Text("jo".to_owned()),
+            Value::Int(1),
+        ]]),
         tasks::GET => {
             let mut row = vec![params[1].clone(), Value::Text("jo".to_owned())];
             row.resize(12, Value::Null);
@@ -130,7 +142,6 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
             row.resize(7, Value::Null);
             Some(vec![row])
         }
-        workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
         seats::GET => Some(vec![vec![params[1].clone(), Value::Text("jo".to_owned())]]),
         job_orders::GET => Some(vec![vec![
             params[1].clone(),
@@ -500,8 +511,9 @@ fn body(operation: Operation) -> &'static str {
         | Operation::StageList
         | Operation::LostReasonList
         | Operation::ProjectRoleList
-        | Operation::ExportCreate => "",
-        Operation::ClientSave => "\nAcme\n",
+        | Operation::ExportCreate
+        | Operation::PlanTemplates => "",
+        Operation::ClientSave | Operation::PlanTemplatesSave => "\nAcme\n",
         Operation::ClientSync => "ref-1\nAcme",
         Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
         Operation::ClientList
@@ -515,6 +527,12 @@ fn body(operation: Operation) -> &'static str {
         Operation::StageSave => "lead\nLead\nopen\n1",
         Operation::LostReasonSave => "late\nToo late\nyes",
         Operation::ProjectRoleSave => "lead\nLead",
+        _ => job_body(operation),
+    }
+}
+
+fn job_body(operation: Operation) -> &'static str {
+    match operation {
         Operation::ProjectGet
         | Operation::ProjectPage
         | Operation::TaskByProject
@@ -523,7 +541,15 @@ fn body(operation: Operation) -> &'static str {
         | Operation::ProjectMembersSave
         | Operation::ProjectArchive
         | Operation::JobList => "p1",
-        Operation::JobGet | Operation::JobCancel | Operation::JobOrderList | Operation::TaskList => "jo",
+        Operation::JobGet
+        | Operation::JobCancel
+        | Operation::JobOrderList
+        | Operation::TaskList
+        | Operation::PlanGroups
+        | Operation::PlanGroupsSave
+        | Operation::PlanVersions
+        | Operation::PlanRestoreVersion
+        | Operation::PlanReplaceFromTemplate => "jo",
         Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
         Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
         Operation::JobBoard | Operation::EquipmentTimeline => "2026-01-05\n2026-01-09",
@@ -850,7 +876,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 39);
+    assert_eq!(once.len(), 43);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }
