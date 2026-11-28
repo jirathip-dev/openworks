@@ -9,7 +9,7 @@ use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
 use openworks_db::{
-    approvals, attachments, clients, idempotency, job_orders, jobs, members, projects, sites, stages, tasks,
+    approvals, attachments, clients, equipment, idempotency, job_orders, jobs, members, projects, sites, stages, tasks,
 };
 
 type Statement = (&'static str, Vec<Value>);
@@ -116,9 +116,26 @@ impl Tx for Store {
 fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
     match sql {
         jobs::GET => Some(vec![job(&params[1])]),
-        jobs::SAVE | jobs::PLAN | jobs::MOVE | job_orders::ISSUE | tasks::SAVE | tasks::ARCHIVE | tasks::RESTORE => {
-            Some(vec![vec![params[1].clone()]])
-        }
+        jobs::SAVE
+        | jobs::PLAN
+        | jobs::MOVE
+        | job_orders::ISSUE
+        | tasks::SAVE
+        | tasks::ARCHIVE
+        | tasks::RESTORE
+        | equipment::FILL
+        | equipment::CANCEL => Some(vec![vec![params[1].clone()]]),
+        equipment::LOCK => Some(vec![fields(&["e1", "V-1", "Van", "Van", "Yard", "", "in_service"])]),
+        equipment::GET_NEED => Some(vec![fields(&["n1", "jo", "", "Van", "2026-01-05", "2026-01-09", ""])]),
+        equipment::BOOKING => Some(vec![fields(&[
+            "b1",
+            "e1",
+            "jo",
+            "",
+            "2026-01-05",
+            "2026-01-09",
+            "booked",
+        ])]),
         tasks::GET => {
             let mut row = vec![params[1].clone(), Value::Text("jo".to_owned())];
             row.resize(12, Value::Null);
@@ -134,6 +151,16 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
         ]]),
         _ => None,
     }
+}
+
+fn fields(texts: &[&str]) -> Row {
+    texts
+        .iter()
+        .map(|field| match *field {
+            "" => Value::Null,
+            field => Value::Text(field.to_owned()),
+        })
+        .collect()
 }
 
 fn job(id: &Value) -> Row {
@@ -478,7 +505,9 @@ fn body(operation: Operation) -> &'static str {
         | Operation::StageList
         | Operation::LostReasonList
         | Operation::ProjectRoleList
-        | Operation::ExportCreate => "",
+        | Operation::ExportCreate
+        | Operation::EquipmentList
+        | Operation::EquipmentNeeds => "",
         Operation::ClientSave => "\nAcme\n",
         Operation::ClientSync => "ref-1\nAcme",
         Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
@@ -504,7 +533,7 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobGet | Operation::JobCancel | Operation::JobOrderList | Operation::TaskList => "jo",
         Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
         Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
-        Operation::JobBoard => "2026-01-05\n2026-01-09",
+        Operation::JobBoard | Operation::EquipmentTimeline => "2026-01-05\n2026-01-09",
         Operation::JobOpen => "jp",
         Operation::JobFinish => "jo\n2026-01-09",
         Operation::JobReopen => "jf",
@@ -512,6 +541,11 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobOrderSave => "jo\nSet out the first floor",
         Operation::TaskSave => "jo\nt1\tDIG\tDig\t#aa5500\t0\t2\t1600\t2500\t1\t\n\tPOUR\tPour\t\t2\t1\t\t\t\t",
         Operation::TaskArchive | Operation::TaskRestore => "t1",
+        Operation::EquipmentSave => "\nV-1\nVan\nVan\nYard\njo\n",
+        Operation::EquipmentBook => "e1\njo\n\n2026-01-05\n2026-01-09",
+        Operation::EquipmentFill => "n1\ne1",
+        Operation::EquipmentCancel => "b1",
+        Operation::EquipmentNeed => "jo\n\nVan\n2026-01-05\n2026-01-09",
     }
 }
 
@@ -802,7 +836,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 32);
+    assert_eq!(once.len(), 35);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }
