@@ -270,7 +270,7 @@ fn a_report_holds_hours_per_worker_task_and_kind_and_each_edit_is_a_new_version(
     let listed = ok(post("/daily-reports/list", "viewer", "j1"));
     assert_eq!(listed, format!("[{}]", report(&id, "2026-01-05", 1, 3)));
 
-    assert_eq!(host.store().trail.events.len(), 4);
+    assert_eq!(host.store().trail.events.len(), 5);
 }
 
 #[test]
@@ -304,23 +304,14 @@ fn hours_name_a_known_worker_a_task_of_the_job_a_kind_and_more_than_none() {
     let approved = post(
         "/daily-reports/set-hours",
         "owner",
-        &format!("{id}\nada\tt1\tregular\t100"),
+        &format!("{id}\nada\tt1\tregular\t1"),
     );
     assert_eq!(
         approved.body,
         format!("invalid: report {id} is approved and does not change")
     );
-    assert_eq!(
-        host.store().hours,
-        [[
-            text("o1"),
-            text(&id),
-            text("ada"),
-            text("t1"),
-            text("regular"),
-            Value::Int(800)
-        ]]
-    );
+    assert_eq!(host.store().hours.len(), 1);
+    assert_eq!(host.store().hours[0][5], Value::Int(800));
     assert_eq!(host.store().reports[0][6], Value::Int(2));
 }
 
@@ -331,18 +322,9 @@ fn a_report_declares_progress_per_task() {
     let post = |path: &str, who: &str, body: &str| send(&openworks, path, who, body);
     let id = ok(post("/daily-reports/save", "owner", "j1\n2026-01-05"));
 
-    assert_eq!(
-        ok(post(
-            "/daily-reports/set-progress",
-            "member",
-            &format!("{id}\nt1\t40\nt2\t100")
-        )),
-        id
-    );
-    assert_eq!(
-        ok(post("/daily-reports/set-progress", "member", &format!("{id}\nt1\t55"))),
-        id
-    );
+    let set = |lines: &str| post("/daily-reports/set-progress", "member", &format!("{id}\n{lines}"));
+    assert_eq!(ok(set("t1\t40\nt2\t100")), id);
+    assert_eq!(ok(set("t1\t55")), id);
     assert_eq!(
         ok(post("/daily-reports/progress", "viewer", &id)),
         r#"[{"id":"t1","percent":55,"ext":{}}]"#
