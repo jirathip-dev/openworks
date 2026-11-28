@@ -1,6 +1,6 @@
 use openworks_core::{Mount, Reach};
 
-use crate::{approvals, clients, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks};
+use crate::{approvals, clients, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks};
 
 openworks_core::operations! {
     OrgList => orgs::LIST,
@@ -61,13 +61,14 @@ openworks_core::operations! {
     TaskSave => tasks::SAVE,
     TaskArchive => tasks::ARCHIVE,
     TaskRestore => tasks::RESTORE,
+    ExportCreate => exports::CREATE,
 }
 
 pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 9] = [
+const HOMES: [(&str, &str); 10] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -77,6 +78,7 @@ const HOMES: [(&str, &str); 9] = [
     ("/jobs", "jobs"),
     ("/job-orders", "job_orders"),
     ("/tasks", "tasks"),
+    ("/exports", "exports"),
 ];
 
 impl Operation {
@@ -110,6 +112,7 @@ impl Operation {
             Self::TaskList | Self::TaskByProject | Self::TaskSave | Self::TaskArchive | Self::TaskRestore => {
                 ("/tasks", "tasks")
             }
+            Self::ExportCreate => ("/exports", "exports"),
             _ => ("/projects", "projects"),
         }
     }

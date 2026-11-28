@@ -477,7 +477,8 @@ fn body(operation: Operation) -> &'static str {
         | Operation::ProjectImport
         | Operation::StageList
         | Operation::LostReasonList
-        | Operation::ProjectRoleList => "",
+        | Operation::ProjectRoleList
+        | Operation::ExportCreate => "",
         Operation::ClientSave => "\nAcme\n",
         Operation::ClientSync => "ref-1\nAcme",
         Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
