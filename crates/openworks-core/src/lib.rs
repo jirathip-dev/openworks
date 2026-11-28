@@ -1,8 +1,10 @@
 use std::fmt;
 
+mod board;
 mod job;
 mod task;
 
+pub use board::{Issue, Readiness};
 pub use job::{Date, JobStatus, JobStep, Window, WorkDays};
 pub use task::Hours;
 
