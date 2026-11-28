@@ -1,0 +1,7 @@
+about = "the server's end-to-end test against a real Postgres: the one OPENWORKS_TEST_DATABASE_URL names, else the runner's own, started for the run"
+fix = "fix the failing step the log names; locally run it with OPENWORKS_TEST_DATABASE_URL set to a database it may write to"
+budget_secs = 600
+platform = "linux"
+setup = ["rust"]
+needs = ["quiet-host"]
+run = "set -e; if [ -z \"${OPENWORKS_TEST_DATABASE_URL:-}\" ]; then sudo systemctl start postgresql.service; sudo -u postgres psql -qc \"alter user postgres password 'postgres'\"; export OPENWORKS_TEST_DATABASE_URL=postgres://postgres:postgres@localhost/postgres; fi; cargo test --locked -p openworks-server --test server -- --ignored"

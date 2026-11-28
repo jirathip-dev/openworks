@@ -119,10 +119,10 @@ fn propose_and_settle(server: &Server, store: &Store, org: &Id, person: &str, as
 }
 
 #[test]
+#[ignore = "needs a Postgres in OPENWORKS_TEST_DATABASE_URL; the local/postgres gate runs it"]
 fn a_person_signs_in_and_confirms_what_their_assistant_proposed() {
-    let Ok(url) = env::var("OPENWORKS_TEST_DATABASE_URL") else {
-        return;
-    };
+    let url = env::var("OPENWORKS_TEST_DATABASE_URL")
+        .expect("OPENWORKS_TEST_DATABASE_URL names the Postgres this test writes to");
     let files = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("server-files");
     let store = Store::connect(&url, files).unwrap();
     store.migrate().unwrap();
