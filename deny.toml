@@ -19,6 +19,30 @@ allow = ["Zlib"]
 crate = "epaint_default_fonts"
 allow = ["OFL-1.1", "Ubuntu-font-1.0"]
 
+[[licenses.exceptions]]
+crate = "ring"
+allow = ["ISC"]
+
+[[licenses.exceptions]]
+crate = "rustls-webpki"
+allow = ["ISC"]
+
+[[licenses.exceptions]]
+crate = "untrusted"
+allow = ["ISC"]
+
+[[licenses.exceptions]]
+crate = "simple_asn1"
+allow = ["ISC"]
+
+[[licenses.exceptions]]
+crate = "subtle"
+allow = ["BSD-3-Clause"]
+
+[[licenses.exceptions]]
+crate = "webpki-roots"
+allow = ["CDLA-Permissive-2.0"]
+
 [licenses.private]
 ignore = true
 
@@ -26,8 +50,12 @@ ignore = true
 multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
+skip = [
+    { crate = "base64@0.22", reason = "jsonwebtoken and postgres-protocol lag ureq's 0.23" },
+    { crate = "getrandom@0.2", reason = "ring lags postgres-protocol's 0.4" },
+]
 deny = [
-    { crate = "tokio", reason = "transports live in drover and cooee, never here" },
+    { crate = "tokio", wrappers = ["tokio-postgres", "postgres", "tokio-util"], reason = "transports live in drover and cooee, never here; only inside the sync postgres driver (owner q4219)" },
     { crate = "hyper", reason = "transports live in drover and cooee, never here" },
     { crate = "reqwest", reason = "transports live in drover and cooee, never here" },
     { crate = "eframe", reason = "the window is the app's, never this workspace's" },
