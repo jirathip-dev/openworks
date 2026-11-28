@@ -1,6 +1,6 @@
 use std::cell::{Cell, RefCell};
 
-use openworks::{Caller, Files, Host, Openworks, Request, Response};
+use openworks::{Caller, Files, Host, Openworks, Request, Response, Via};
 use openworks_core::{Fail, Id, Role, Row, Tx, Value};
 use openworks_db::{AUDIT, EVENT, clients, members, sites};
 
@@ -120,6 +120,7 @@ impl Host for &TestHost {
             person: Id(credential.to_owned()),
             email: format!("{credential}@o.test"),
             org: Id(org.to_owned()),
+            via: Via::Person,
         })
     }
 

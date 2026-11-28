@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Tx, Value};
+use openworks_core::{Call, Declaration, Fail, Row, Tx, Value};
 use openworks_db::attachments::{ADD, LIST as LIST_SQL};
 
 /// Stores the body's file through the host's files under its tag; the body is the tag, the name, then the content, a line each.
@@ -41,8 +41,11 @@ fn list(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
             Value::Text(call.body.trim().to_owned()),
         ],
     )?;
-    let lines: Vec<String> = rows
-        .iter()
+    Ok(lines(&rows))
+}
+
+pub(crate) fn lines(rows: &[Row]) -> String {
+    rows.iter()
         .map(|row| {
             row.iter()
                 .map(|value| match value {
@@ -53,6 +56,6 @@ fn list(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
                 .collect::<Vec<_>>()
                 .join("\t")
         })
-        .collect();
-    Ok(lines.join("\n"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

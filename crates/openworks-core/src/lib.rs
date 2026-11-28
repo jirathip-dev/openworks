@@ -77,12 +77,20 @@ impl Role {
     }
 }
 
-/// The signed-in member, the org they act for and their role in it.
+/// Who is at the keyboard: the person, or an assistant acting for them that may propose and never decide.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Via {
+    Person,
+    Assistant,
+}
+
+/// The signed-in member, the org they act for, their role in it and who acts for them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Who {
     pub person: Id,
     pub org: Id,
     pub role: Role,
+    pub via: Via,
 }
 
 /// A value bound to a query parameter or read from a row.
@@ -126,11 +134,12 @@ pub struct Extension {
     pub extend: Extender,
 }
 
-/// A kind of approval a pack asks for, and the word an approver needs.
+/// A kind of approval a pack asks for, the word an approver needs and whether a yes needs a signature file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Approval {
     pub key: &'static str,
     pub needs: Word,
+    pub signature: bool,
 }
 
 /// A print template a pack brings for one record kind.
@@ -186,13 +195,14 @@ pub trait Files {
     fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail>;
 }
 
-/// What a store handler is called with: the caller, the body, the change's time, a fresh id and the host's files.
+/// What a store handler is called with: the caller, the body, the change's time, a fresh id, the host's files and the packs' approval kinds.
 pub struct Call<'a> {
     pub who: &'a Who,
     pub body: &'a str,
     pub at: i64,
     pub id: Id,
     pub files: &'a dyn Files,
+    pub approvals: &'a [Approval],
 }
 
 /// What an operation does to the store.
