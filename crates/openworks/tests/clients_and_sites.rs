@@ -124,8 +124,8 @@ fn a_client_is_saved_listed_got_and_renamed() {
     assert_eq!(send(&openworks, "/clients/save", "owner", "\n  \n").status, 400);
     assert_eq!(send(&openworks, "/clients/save", "viewer", "\nAcme").status, 403);
     assert_eq!(ok(send(&openworks, "/clients/list", "other", "")), "[]");
-    assert_eq!(host.committed.borrow().audits, 3);
-    assert_eq!(host.committed.borrow().events.len(), 3);
+    assert_eq!(host.store().audits, 3);
+    assert_eq!(host.store().events.len(), 3);
 }
 
 #[test]
@@ -135,15 +135,12 @@ fn a_client_is_deactivated_once_and_keeps_its_first_time() {
     let id = ok(send(&openworks, "/clients/save", "owner", "\nAcme"));
 
     ok(send(&openworks, "/clients/deactivate", "owner", &id));
-    host.clock.set(5);
+    host.set_clock(5);
     ok(send(&openworks, "/clients/deactivate", "owner", &id));
 
     assert!(ok(send(&openworks, "/clients/get", "owner", &id)).contains(&format!(r#""deactivated_at":{T0},"#)));
     assert_eq!(send(&openworks, "/clients/deactivate", "other", &id).status, 404);
-    assert_eq!(
-        host.committed.borrow().events.last().unwrap().0,
-        text("clients.deactivate")
-    );
+    assert_eq!(host.store().events.last().unwrap().0, text("clients.deactivate"));
 }
 
 #[test]
@@ -169,7 +166,7 @@ fn a_host_syncs_its_clients_by_reference_and_twice_does_what_once_did() {
         openworks.sync_client(by, org, "", "Nameless"),
         Err(Fail::Invalid("a synced client needs a host_ref".to_owned()))
     );
-    let events = &host.committed.borrow().events;
+    let events = &host.store().events;
     assert_eq!(events.len(), 3);
     assert_eq!(events[0], (text("clients.sync"), text("cust-1\nAcme")));
 }

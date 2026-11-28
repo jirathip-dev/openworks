@@ -32,8 +32,9 @@ fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     let [id, name, host_ref] = lines(call.body)?;
     let (name, host_ref) = (named(name)?, optional(host_ref));
     if id.is_empty() {
-        tx.run(ADD, &[org(call.who), Value::Text(call.id.0.clone()), name, host_ref])?;
-        return Ok(call.id.0.clone());
+        let id = (call.fresh)().0;
+        tx.run(ADD, &[org(call.who), Value::Text(id.clone()), name, host_ref])?;
+        return Ok(id);
     }
     changed(tx.run(SAVE_SQL, &[org(call.who), Value::Text(id.to_owned()), name, host_ref])?)
 }
@@ -50,7 +51,7 @@ fn sync(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     }
     let params = [
         org(call.who),
-        Value::Text(call.id.0.clone()),
+        Value::Text((call.fresh)().0),
         named(name)?,
         Value::Text(host_ref.to_owned()),
     ];

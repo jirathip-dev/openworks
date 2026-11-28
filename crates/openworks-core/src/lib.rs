@@ -1,5 +1,9 @@
 use std::fmt;
 
+mod job;
+
+pub use job::{Date, JobStatus, JobStep, Window, WorkDays};
+
 /// An opaque identifier the host hands out.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Id(pub String);
@@ -235,12 +239,12 @@ pub trait Files {
     fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail>;
 }
 
-/// What a store handler is called with: the caller, the body, the change's time, a fresh id, the host's files and the packs' approval kinds.
+/// What a store handler is called with: the caller, the body, the change's time, a fresh id each time it asks, the host's files and the packs' approval kinds.
 pub struct Call<'a> {
     pub who: &'a Who,
     pub body: &'a str,
     pub at: i64,
-    pub id: Id,
+    pub fresh: &'a dyn Fn() -> Id,
     pub files: &'a dyn Files,
     pub approvals: &'a [Approval],
 }

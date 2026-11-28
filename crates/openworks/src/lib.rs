@@ -12,6 +12,8 @@ mod approvals;
 mod clients;
 mod due;
 mod files;
+mod idempotency;
+mod jobs;
 mod json;
 mod members;
 mod orgs;
@@ -59,19 +61,28 @@ openworks_core::operations! {
     LostReasonSave => setup::LOST_REASON_SAVE,
     ProjectRoleList => setup::ROLES,
     ProjectRoleSave => setup::ROLE_SAVE,
+    JobList => jobs::LIST,
+    JobGet => jobs::GET,
+    JobSave => jobs::SAVE,
+    JobReschedule => jobs::RESCHEDULE,
+    JobOpen => jobs::OPEN,
+    JobFinish => jobs::FINISH,
+    JobReopen => jobs::REOPEN,
+    JobCancel => jobs::CANCEL,
 }
 
 const KEY: &str = "orgs";
 
 const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 6] = [
+const HOMES: [(&str, &str); 7] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
     ("/clients", CLIENTS),
     ("/sites", "sites"),
     ("/projects", "projects"),
+    ("/jobs", "jobs"),
 ];
 
 impl Operation {
@@ -90,6 +101,14 @@ impl Operation {
                 ("/clients", CLIENTS)
             }
             Self::SiteList | Self::SiteGet | Self::SiteSave | Self::SiteDeactivate => ("/sites", "sites"),
+            Self::JobList
+            | Self::JobGet
+            | Self::JobSave
+            | Self::JobReschedule
+            | Self::JobOpen
+            | Self::JobFinish
+            | Self::JobReopen
+            | Self::JobCancel => ("/jobs", "jobs"),
             _ => ("/projects", "projects"),
         }
     }
@@ -413,7 +432,7 @@ impl<H: Host> Openworks<H> {
         key: Option<&str>,
     ) -> Result<String, Fail> {
         let declaration = route.declaration;
-        let key = create_key(declaration.kind(), key)?;
+        let key = idempotency::create_key(declaration.kind(), key)?;
         let changes = matches!(declaration.kind(), Kind::Write | Kind::Create);
         let mut answered = None;
         let mut committed = None;
@@ -430,7 +449,10 @@ impl<H: Host> Openworks<H> {
                 body: body.to_owned(),
                 at: self.host.now(),
             };
-            answered = key.map(|key| replay(tx, &change, key)).transpose()?.flatten();
+            answered = key
+                .map(|key| idempotency::replay(tx, &change, key))
+                .transpose()?
+                .flatten();
             if answered.is_some() {
                 return Ok(());
             }
@@ -438,7 +460,7 @@ impl<H: Host> Openworks<H> {
                 who: &who,
                 body,
                 at: change.at,
-                id: self.host.id(),
+                fresh: &|| self.host.id(),
                 files: self.host.files(),
                 approvals: &self.approvals,
             };
@@ -446,7 +468,7 @@ impl<H: Host> Openworks<H> {
             if changes {
                 self.trail(tx, &change)?;
                 if let Some(key) = key {
-                    keep(tx, &change, key, &answer)?;
+                    idempotency::keep(tx, &change, key, &answer)?;
                 }
                 for hook in &self.hooks {
                     hook.before_commit(&change)?;
@@ -519,43 +541,6 @@ impl<H: Host> Openworks<H> {
         )?;
         Ok(())
     }
-}
-
-fn create_key(kind: Kind, key: Option<&str>) -> Result<Option<&str>, Fail> {
-    match (kind, key) {
-        (Kind::Create, None | Some("")) => Err(Fail::Invalid("a create needs an Idempotency-Key".to_owned())),
-        (Kind::Create, key) => Ok(key),
-        _ => Ok(None),
-    }
-}
-
-fn replay(tx: &mut dyn Tx, change: &Change, key: &str) -> Result<Option<String>, Fail> {
-    let rows = tx.run(
-        openworks_db::idempotency::FIND,
-        &[
-            Value::Text(change.org.0.clone()),
-            Value::Text(change.operation.clone()),
-            Value::Text(key.to_owned()),
-        ],
-    )?;
-    Ok(match rows.first().and_then(|row| row.first()) {
-        Some(Value::Text(answer)) => Some(answer.clone()),
-        _ => None,
-    })
-}
-
-fn keep(tx: &mut dyn Tx, change: &Change, key: &str, answer: &str) -> Result<(), Fail> {
-    tx.run(
-        openworks_db::idempotency::SAVE,
-        &[
-            Value::Text(change.org.0.clone()),
-            Value::Text(change.operation.clone()),
-            Value::Text(key.to_owned()),
-            Value::Text(answer.to_owned()),
-            Value::Int(change.at),
-        ],
-    )?;
-    Ok(())
 }
 
 struct Declared<'a> {

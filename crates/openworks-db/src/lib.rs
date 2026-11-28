@@ -18,6 +18,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
         include_str!("../migrations/0006_clients_and_sites.sql"),
     ),
     ("0007_projects", include_str!("../migrations/0007_projects.sql")),
+    ("0008_jobs", include_str!("../migrations/0008_jobs.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -240,6 +241,28 @@ pub mod project_members {
 
     /// Adds a person to a project in a role.
     pub const ADD: &str = "insert into works.project_members (org_id, project_id, person_id, role_key) values ($1, $2, $3, $4) on conflict do nothing";
+}
+
+/// The queries on jobs; a person bound in place of null narrows a read to the jobs of the projects they are a member of.
+pub mod jobs {
+    /// Lists a project's jobs: id, project, number, status, at site, base date, work days, planned start and end, actual start and end, remark, finished.
+    pub const LIST: &str = "select j.job_id, j.project_id, j.number, j.status, j.at_site, j.base_date, j.work_days, j.planned_start, j.planned_end, j.actual_start, j.actual_end, j.remark, j.finished_at from works.jobs j where j.org_id = $1 and j.project_id = $2 order by j.job_id";
+
+    /// Reads one job, with the columns `LIST` reads.
+    pub const GET: &str = "select j.job_id, j.project_id, j.number, j.status, j.at_site, j.base_date, j.work_days, j.planned_start, j.planned_end, j.actual_start, j.actual_end, j.remark, j.finished_at from works.jobs j where j.org_id = $1 and j.job_id = $2 and ($3::text is null or exists (select 1 from works.project_members m where m.org_id = j.org_id and m.project_id = j.project_id and m.person_id = $3))";
+
+    /// Adds a project's job, proposed.
+    pub const ADD: &str = "insert into works.jobs (org_id, job_id, project_id, status) values ($1, $2, $3, 'proposed')";
+
+    /// Changes whether a job is at the site, its calendar, its actual start and its remark.
+    pub const SAVE: &str = "update works.jobs set at_site = $3, base_date = $4, work_days = $5, actual_start = $6, remark = $7 where org_id = $1 and job_id = $2 returning job_id";
+
+    /// Sets a job's planned window.
+    pub const PLAN: &str =
+        "update works.jobs set planned_start = $3, planned_end = $4 where org_id = $1 and job_id = $2 returning job_id";
+
+    /// Moves a job to a status with its number, actual end and finished mark.
+    pub const MOVE: &str = "update works.jobs set status = $3, number = $4, actual_end = $5, finished_at = $6 where org_id = $1 and job_id = $2 returning job_id";
 }
 
 /// Runs every migration's statements in the transaction; each is idempotent.

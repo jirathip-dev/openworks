@@ -183,7 +183,7 @@ impl Hook for Veto {
 
 fn openworks(host: &SharedHost) -> Openworks<&SharedHost> {
     Openworks::new(host)
-        .mount(Mount::new("/jobs", "jobs").operation(&OPEN_JOB, Reach::Org))
+        .mount(Mount::new("/numbered", "numbered").operation(&OPEN_JOB, Reach::Org))
         .hook(Veto)
         .build()
         .unwrap()
@@ -199,7 +199,7 @@ fn send(openworks: &Openworks<&SharedHost>, path: &str, credential: &str, key: O
 }
 
 fn open_job(openworks: &Openworks<&SharedHost>, credential: &str, body: &str) -> Response {
-    send(openworks, "/jobs/open", credential, None, body)
+    send(openworks, "/numbered/open", credential, None, body)
 }
 
 #[test]

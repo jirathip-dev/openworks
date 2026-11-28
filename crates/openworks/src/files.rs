@@ -18,19 +18,20 @@ fn attach(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     }
     let size = i64::try_from(content.len()).map_err(|_| Fail::Invalid("the file is too large".to_owned()))?;
     let org = &call.who.org.0;
-    call.files.put(&format!("{org}/{}", call.id.0), content.as_bytes())?;
+    let id = (call.fresh)().0;
+    call.files.put(&format!("{org}/{id}"), content.as_bytes())?;
     tx.run(
         ADD,
         &[
             Value::Text(org.clone()),
-            Value::Text(call.id.0.clone()),
+            Value::Text(id.clone()),
             Value::Text(tag.to_owned()),
             Value::Text(name.to_owned()),
             Value::Int(size),
             Value::Int(call.at),
         ],
     )?;
-    Ok(call.id.0.clone())
+    Ok(id)
 }
 
 fn list(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {

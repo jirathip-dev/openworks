@@ -1,0 +1,23 @@
+create table if not exists works.jobs (
+    org_id text not null references works.orgs (org_id),
+    job_id text not null,
+    project_id text not null,
+    number text,
+    status text not null check (status in ('proposed', 'open', 'finished', 'cancelled')),
+    at_site bigint not null default 1 check (at_site in (0, 1)),
+    base_date text,
+    work_days text,
+    planned_start text,
+    planned_end text,
+    actual_start text,
+    actual_end text,
+    remark text not null default '',
+    finished_at bigint,
+    primary key (org_id, job_id),
+    unique (org_id, number),
+    foreign key (org_id, project_id) references works.projects (org_id, project_id),
+    check ((planned_start is null) = (planned_end is null)),
+    check (planned_start <= planned_end),
+    check (actual_start <= actual_end),
+    check (status = 'proposed' or number is not null)
+)

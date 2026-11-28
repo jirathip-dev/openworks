@@ -8,7 +8,7 @@ use openworks::{Caller, Files, Host, Openworks, Operation, Refused, Request, Res
 use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
-use openworks_db::{approvals, attachments, clients, idempotency, members, projects, sites, stages};
+use openworks_db::{approvals, attachments, clients, idempotency, jobs, members, projects, sites, stages};
 
 type Statement = (&'static str, Vec<Value>);
 
@@ -105,10 +105,45 @@ impl Tx for Store {
             }
             _ => match self.approval_rows(sql, params) {
                 Some(rows) => rows,
-                None => self.member_rows(sql, params),
+                None => job_rows(sql, params).unwrap_or_else(|| self.member_rows(sql, params)),
             },
         })
     }
+}
+
+fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
+    match sql {
+        jobs::GET => Some(vec![job(&params[1])]),
+        jobs::SAVE | jobs::PLAN | jobs::MOVE => Some(vec![vec![params[1].clone()]]),
+        _ => None,
+    }
+}
+
+fn job(id: &Value) -> Row {
+    let status = match text(id).as_str() {
+        "jp" => "proposed",
+        "jf" => "finished",
+        _ => "open",
+    };
+    let [project, number, status, day] = ["p1", "J-1", status, "2026-01-05"].map(|field| Value::Text(field.to_owned()));
+    let mut row = vec![
+        id.clone(),
+        project,
+        number,
+        status,
+        Value::Int(1),
+        Value::Null,
+        Value::Null,
+    ];
+    row.extend([
+        day.clone(),
+        day.clone(),
+        day,
+        Value::Null,
+        Value::Text(String::new()),
+        Value::Null,
+    ]);
+    row
 }
 
 fn pick_from(rows: &[Row], key: &Value, column: usize) -> Vec<Row> {
@@ -442,7 +477,14 @@ fn body(operation: Operation) -> &'static str {
         | Operation::ProjectLink
         | Operation::ProjectMembers
         | Operation::ProjectMembersSave
-        | Operation::ProjectArchive => "p1",
+        | Operation::ProjectArchive
+        | Operation::JobList => "p1",
+        Operation::JobGet | Operation::JobCancel => "jo",
+        Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
+        Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
+        Operation::JobOpen => "jp",
+        Operation::JobFinish => "jo\n2026-01-09",
+        Operation::JobReopen => "jf",
     }
 }
 
@@ -732,7 +774,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 19);
+    assert_eq!(once.len(), 20);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }

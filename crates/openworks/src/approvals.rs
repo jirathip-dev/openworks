@@ -60,11 +60,12 @@ fn request(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
         return Err(Fail::Invalid("a request needs a kind and a subject".to_owned()));
     };
     rule(call, tx, kind)?;
+    let id = (call.fresh)().0;
     let asked = tx.run(
         REQUEST_SQL,
         &[
             org(call.who),
-            text(&call.id.0),
+            text(&id),
             text(kind),
             text(subject),
             text(&call.who.person.0),
@@ -77,7 +78,7 @@ fn request(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
             "{kind} on {subject} is pending or approved already"
         )));
     }
-    Ok(call.id.0.clone())
+    Ok(id)
 }
 
 fn decide(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
