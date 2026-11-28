@@ -30,6 +30,11 @@ fn meets(row: &Row, from: &Value, to: &Value) -> bool {
     day(&row[5]) <= day(to) && day(&row[6]) >= day(from)
 }
 
+fn push(table: &mut Vec<Row>, row: Row) -> Vec<Row> {
+    table.push(row);
+    Vec::new()
+}
+
 fn keyed(p: &[Value]) -> impl Fn(&Row) -> bool + '_ {
     move |row: &Row| row[..2] == p[..2]
 }
@@ -47,10 +52,7 @@ impl Store {
                 select(&self.things, |row| row[0] == p[0])
             }
             equipment::LOCK => select(&self.things, keyed(p)),
-            equipment::ADD => {
-                self.things.push(p.to_vec());
-                Vec::new()
-            }
+            equipment::ADD => push(&mut self.things, p.to_vec()),
             equipment::SAVE => change(&mut self.things, keyed(p), |row| row.clone_from_slice(p)),
             _ => self.booking_rows(sql, p),
         }
@@ -62,10 +64,7 @@ impl Store {
             equipment::CLASHES => select(&self.bookings, |row| {
                 live(row) && row[2] == p[1] && meets(row, &p[2], &p[3])
             }),
-            equipment::BOOK => {
-                self.bookings.push([p, &[text("booked")]].concat());
-                Vec::new()
-            }
+            equipment::BOOK => push(&mut self.bookings, [p, &[text("booked")]].concat()),
             equipment::BOOKING => select(&self.bookings, keyed(p)),
             equipment::CANCEL => change(
                 &mut self.bookings,
@@ -91,10 +90,7 @@ impl Store {
     fn need_rows(&mut self, sql: &'static str, p: &[Value]) -> Vec<Row> {
         let open = |row: &Row| row[7] == Value::Null;
         match sql {
-            equipment::NEED => {
-                self.needs.push([p, &[Value::Null]].concat());
-                Vec::new()
-            }
+            equipment::NEED => push(&mut self.needs, [p, &[Value::Null]].concat()),
             equipment::GET_NEED => select(&self.needs, keyed(p)),
             equipment::NEEDS => {
                 let rows = select(&self.needs, |row| {
@@ -107,12 +103,7 @@ impl Store {
                 |row| keyed(p)(row) && open(row),
                 |row| row[7] = p[2].clone(),
             ),
-            equipment::RELEASE => {
-                for row in self.needs.iter_mut().filter(|row| row[7] == p[1]) {
-                    row[7] = Value::Null;
-                }
-                Vec::new()
-            }
+            equipment::RELEASE => change(&mut self.needs, |row| row[7] == p[1], |row| row[7] = Value::Null),
             _ => Vec::new(),
         }
     }
