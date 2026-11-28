@@ -23,7 +23,7 @@ pub fn change(table: &mut [Row], hit: impl Fn(&Row) -> bool, set: impl FnOnce(&m
     })
 }
 
-/// The sign-in, audit and event queries: `viewer` is a Viewer, anyone else an Owner.
+/// The sign-in, audit and event queries: a person named for a role holds it, anyone else is an Owner.
 #[derive(Clone, Default)]
 pub struct Trail {
     pub events: Vec<(Value, Value)>,
@@ -34,10 +34,13 @@ impl Trail {
     /// Answers the query if it is one of the trail's, else none.
     pub fn run(&mut self, sql: &str, p: &[Value]) -> Option<Vec<Row>> {
         Some(match sql {
-            members::FIND => vec![vec![text(match &p[1] {
-                Value::Text(person) if person == "viewer" => Role::Viewer.name(),
-                _ => Role::Owner.name(),
-            })]],
+            members::FIND => {
+                let role = match &p[1] {
+                    Value::Text(person) => Role::named(person),
+                    _ => None,
+                };
+                vec![vec![text(role.unwrap_or(Role::Owner).name())]]
+            }
             AUDIT => {
                 self.audits += 1;
                 Vec::new()

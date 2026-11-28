@@ -9,8 +9,8 @@ use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
 use openworks_db::{
-    approvals, attachments, clients, idempotency, job_orders, jobs, members, projects, seats, sites, stages, tasks,
-    workers,
+    approvals, attachments, clients, equipment, idempotency, job_orders, jobs, members, projects, seats, sites, stages,
+    tasks, workers,
 };
 
 type Statement = (&'static str, Vec<Value>);
@@ -140,8 +140,22 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
             Value::Null,
             Value::Null,
         ]]),
-        _ => None,
+        _ => equipment_rows(sql, params),
     }
+}
+
+fn equipment_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
+    let row = |texts: [&str; 7]| texts.map(|field| (!field.is_empty()).then(|| Value::Text(field.to_owned())));
+    let row = match sql {
+        equipment::FILL | equipment::CANCEL => return Some(vec![vec![params[1].clone()]]),
+        equipment::LOCK => row(["e1", "V-1", "Van", "Van", "Yard", "", "in_service"]),
+        equipment::GET_NEED => row(["n1", "jo", "", "Van", "2026-01-05", "2026-01-09", ""]),
+        equipment::BOOKING => row(["b1", "e1", "jo", "", "", "", "booked"]),
+        _ => return None,
+    };
+    Some(vec![
+        row.into_iter().map(|field| field.unwrap_or(Value::Null)).collect(),
+    ])
 }
 
 fn job(id: &Value) -> Row {
@@ -512,7 +526,7 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobGet | Operation::JobCancel | Operation::JobOrderList | Operation::TaskList => "jo",
         Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
         Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
-        Operation::JobBoard => "2026-01-05\n2026-01-09",
+        Operation::JobBoard | Operation::EquipmentTimeline => "2026-01-05\n2026-01-09",
         Operation::JobOpen => "jp",
         Operation::JobFinish => "jo\n2026-01-09",
         Operation::JobReopen => "jf",
@@ -534,6 +548,17 @@ fn crew(operation: Operation) -> &'static str {
         Operation::SeatSave => "\njo\nLead\nw1\n1",
         Operation::SeatSetDays => "s1\n2026-01-05\n2026-01-06",
         Operation::SeatBooked => "2026-01-05\n2026-01-09",
+        _ => equipment_body(operation),
+    }
+}
+
+fn equipment_body(operation: Operation) -> &'static str {
+    match operation {
+        Operation::EquipmentSave => "\nV-1\nVan\nVan\nYard\njo\n",
+        Operation::EquipmentBook => "e1\njo\n\n2026-01-05\n2026-01-09",
+        Operation::EquipmentFill => "n1\ne1",
+        Operation::EquipmentCancel => "b1",
+        Operation::EquipmentNeed => "jo\n\nVan\n2026-01-05\n2026-01-09",
         _ => "",
     }
 }
@@ -825,7 +850,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 36);
+    assert_eq!(once.len(), 39);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }
