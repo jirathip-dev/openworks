@@ -62,7 +62,7 @@ pub const MEMBERS_SAVE: Declaration = openworks_core::write!(
 
 /// Archives the project with the body's id.
 pub const ARCHIVE: Declaration =
-    openworks_core::write!("archive", needs: Write, queries: [GET_SQL, ARCHIVE_SQL], archive);
+    openworks_core::write!("archive", needs: Write, queries: [GET_SQL, ARCHIVE_SQL], archive).by_hand();
 
 const FIELDS: [&str; 14] = [
     "name",
