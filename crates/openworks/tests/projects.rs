@@ -970,11 +970,7 @@ fn a_task_line_out_of_shape_saves_nothing() {
 
     for (line, why) in bad_lines(&job, &theirs) {
         let body = format!("{job}\n\tOK\tFine\t\t\t\t\t\t\t\n{line}");
-        assert_eq!(
-            status(&openworks, "/tasks/save", "owner", &body),
-            (400, why.to_owned()),
-            "{line}"
-        );
+        assert_eq!(status(&openworks, "/tasks/save", "owner", &body), (400, why), "{line}");
     }
     assert_eq!(tasks(&openworks, "owner", &job), "[]");
     assert_eq!(

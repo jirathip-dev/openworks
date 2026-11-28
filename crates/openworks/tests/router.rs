@@ -486,13 +486,12 @@ fn body(operation: Operation) -> &'static str {
         | Operation::ProjectMembersSave
         | Operation::ProjectArchive
         | Operation::JobList => "p1",
-        Operation::JobGet | Operation::JobCancel => "jo",
+        Operation::JobGet | Operation::JobCancel | Operation::TaskList => "jo",
         Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
         Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
         Operation::JobOpen => "jp",
         Operation::JobFinish => "jo\n2026-01-09",
         Operation::JobReopen => "jf",
-        Operation::TaskList => "jo",
         Operation::TaskSave => "jo\nt1\tDIG\tDig\t#aa5500\t0\t2\t1600\t2500\t1\t\n\tPOUR\tPour\t\t2\t1\t\t\t\t",
         Operation::TaskArchive | Operation::TaskRestore => "t1",
     }
