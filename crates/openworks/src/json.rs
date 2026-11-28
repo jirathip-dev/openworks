@@ -120,7 +120,7 @@ fn value(value: &Value) -> String {
     }
 }
 
-fn text(string: &str) -> String {
+pub(crate) fn text(string: &str) -> String {
     let mut quoted = String::with_capacity(string.len() + 2);
     quoted.push('"');
     for c in string.chars() {

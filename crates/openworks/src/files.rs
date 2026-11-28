@@ -2,7 +2,7 @@ use openworks_core::{Call, Declaration, Fail, Row, Tx, Value};
 use openworks_db::attachments::{ADD, LIST as LIST_SQL};
 
 /// Stores the body's file through the host's files under its tag; the body is the tag, the name, then the content, a line each.
-pub const ATTACH: Declaration = openworks_core::create!("attach", needs: Write, queries: [ADD], attach);
+pub const ATTACH: Declaration = openworks_core::create!("attach", needs: Write, queries: [ADD], attach).by_hand();
 
 /// Lists the files under the body's tag, one `id<TAB>name<TAB>size` line each; never their content.
 pub const LIST: Declaration = openworks_core::read!("list", needs: Read, queries: [LIST_SQL], list);

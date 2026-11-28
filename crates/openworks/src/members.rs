@@ -2,7 +2,7 @@ use openworks_core::{Call, Declaration, Fail, Role, Tx, Value, Who};
 use openworks_db::members::{HOLDING, LIST as LIST_SQL, REMOVE as REMOVE_SQL, SET as SET_SQL};
 
 /// Lists the org's members, one `email role` a line.
-pub const LIST: Declaration = openworks_core::read!("members", needs: Read, queries: [LIST_SQL], list);
+pub const LIST: Declaration = openworks_core::read!("members", needs: Read, queries: [LIST_SQL], list).by_hand();
 
 /// Adds a member by email or changes their role, from a body of `email role`.
 pub const SET: Declaration = openworks_core::write!("set-member", needs: Members, queries: [HOLDING, SET_SQL], set);

@@ -276,6 +276,15 @@ pub struct Declaration {
     needs: Word,
     queries: &'static [&'static str],
     handler: Handler,
+    by_hand: bool,
+}
+
+/// What an assistant is offered of an operation: a read tool, a proposal a person confirms, or nothing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Offer {
+    Read,
+    Proposal,
+    ByHand,
 }
 
 impl Declaration {
@@ -292,6 +301,7 @@ impl Declaration {
             needs,
             queries,
             handler: Handler::Store(handler),
+            by_hand: false,
         }
     }
 
@@ -309,6 +319,7 @@ impl Declaration {
             needs,
             queries,
             handler: Handler::List(record, handler),
+            by_hand: false,
         }
     }
 
@@ -325,6 +336,7 @@ impl Declaration {
             needs,
             queries,
             handler: Handler::Store(handler),
+            by_hand: false,
         }
     }
 
@@ -341,6 +353,7 @@ impl Declaration {
             needs,
             queries,
             handler: Handler::Store(handler),
+            by_hand: false,
         }
     }
 
@@ -352,6 +365,7 @@ impl Declaration {
             needs,
             queries: &[],
             handler: Handler::Closed(handler),
+            by_hand: false,
         }
     }
 
@@ -378,6 +392,21 @@ impl Declaration {
     /// The operation's body.
     pub const fn handler(&self) -> Handler {
         self.handler
+    }
+
+    /// The same operation, never offered to an assistant: a delete, a file or a contact.
+    #[must_use]
+    pub const fn by_hand(self) -> Self {
+        Self { by_hand: true, ..self }
+    }
+
+    /// What an assistant is offered: members and settings are only ever by hand, a write only as a proposal.
+    pub const fn offer(&self) -> Offer {
+        match (self.by_hand, self.kind, self.needs) {
+            (true, _, _) | (_, _, Word::Members | Word::Settings) => Offer::ByHand,
+            (false, Kind::Read | Kind::Closed, _) => Offer::Read,
+            (false, Kind::Write | Kind::Create, _) => Offer::Proposal,
+        }
     }
 }
 
