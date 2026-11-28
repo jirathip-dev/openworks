@@ -1171,10 +1171,10 @@ fn the_project_list_filters_by_stage_client_and_archive_and_pages() {
     let listed = |body: &str| ids(&ok(send(&openworks, "/projects/list", "viewer", body)));
 
     assert_eq!(listed(""), [&acme, &barn, &cabin].map(String::to_owned));
-    assert_eq!(listed("quoted"), [barn.clone()]);
-    assert_eq!(listed(&format!("\n{client}")), [acme.clone()]);
-    assert_eq!(listed("\n\nyes"), [cabin.clone()]);
-    assert_eq!(listed("lead\n\nno"), [acme.clone()]);
+    assert_eq!(listed("quoted"), std::slice::from_ref(&barn));
+    assert_eq!(listed(&format!("\n{client}")), std::slice::from_ref(&acme));
+    assert_eq!(listed("\n\nyes"), std::slice::from_ref(&cabin));
+    assert_eq!(listed("lead\n\nno"), std::slice::from_ref(&acme));
     assert_eq!(listed("\n\n\n2"), [acme, barn]);
     assert_eq!(listed("\n\n\n2\n2"), [cabin]);
     let refused = |body: &str| status(&openworks, "/projects/list", "viewer", body);
@@ -1232,11 +1232,11 @@ fn the_board_lists_the_jobs_whose_planned_window_meets_the_days() {
     ));
     let board = |credential: &str, body: &str| ids(&ok(send(&openworks, "/jobs/board", credential, body)));
 
-    assert_eq!(board("viewer", "2026-01-01\n2026-01-05"), [early.clone()]);
+    assert_eq!(board("viewer", "2026-01-01\n2026-01-05"), std::slice::from_ref(&early));
     assert_eq!(board("viewer", "2026-01-09\n2026-02-02"), [early.clone(), late.clone()]);
-    assert!(board("viewer", "2026-01-10\n2026-02-01").is_empty());
-    assert_eq!(board("member", "2026-01-01\n2026-12-31"), [early.clone()]);
-    assert!(board("other", "2026-01-01\n2026-12-31").is_empty());
+    assert_eq!(board("viewer", "2026-01-10\n2026-02-01"), Vec::<String>::new());
+    assert_eq!(board("member", "2026-01-01\n2026-12-31"), std::slice::from_ref(&early));
+    assert_eq!(board("other", "2026-01-01\n2026-12-31"), Vec::<String>::new());
     assert_eq!(win(&openworks, &hall).0, 200);
     ok(send(&openworks, "/jobs/cancel", "owner", &early));
     assert_eq!(board("viewer", "2026-01-01\n2026-12-31"), [late]);
