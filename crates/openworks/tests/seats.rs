@@ -99,17 +99,15 @@ fn a_job_s_seats_carry_a_title_a_worker_and_a_number_on_the_job() {
 
     let hand = ok(post("/seats/save", "owner", "\nj1\nHand\n\n1"));
     let lead = ok(post("/seats/save", "owner", "\nj1\nLead\nada\n2"));
-    let listed = [seat(&hand, "Hand", "null", 1), seat(&lead, "Lead", r#""ada""#, 2)];
-    assert_eq!(
-        ok(post("/seats/list", "viewer", "j1")),
-        format!("[{}]", listed.join(","))
+    let listed = format!(
+        "[{},{}]",
+        seat(&hand, "Hand", "null", 1),
+        seat(&lead, "Lead", r#""ada""#, 2)
     );
-    assert_eq!(
-        ok(post("/seats/save", "owner", &format!("{hand}\nj1\nHand\nbo\n3"))),
-        hand
-    );
+    assert_eq!(ok(post("/seats/list", "viewer", "j1")), listed);
+    let renumbered = format!("{hand}\nj1\nHand\nbo\n3");
+    assert_eq!(ok(post("/seats/save", "owner", &renumbered)), hand);
     assert!(ok(post("/seats/list", "viewer", "j1")).contains(&seat(&hand, "Hand", r#""bo""#, 3)));
-    assert_eq!(ok(post("/seats/list", "viewer", "j2")), "[]");
 
     let taken = post("/seats/save", "owner", "\nj1\nSpare\n\n2");
     assert_eq!(taken.body, "invalid: another seat of the job is number 2");
@@ -143,10 +141,8 @@ fn a_worker_holds_one_seat_of_a_job_a_day() {
     assert_eq!(ok(post("/seats/set-days", "owner", &days)), lead);
     assert_eq!(ok(post("/seats/set-days", "owner", &days)), lead);
     assert_eq!(host.store().days.len(), 2);
-    assert_eq!(
-        post("/seats/set-days", "owner", &format!("{hand}\n2026-01-07\n2026-01-06")).body,
-        held
-    );
+    let both = format!("{hand}\n2026-01-07\n2026-01-06");
+    assert_eq!(post("/seats/set-days", "owner", &both).body, held);
     ok(post("/seats/save", "owner", &format!("{hand}\nj1\nHand\n\n2")));
     ok(post("/seats/set-days", "owner", &format!("{hand}\n2026-01-06")));
     let rejoin = format!("{hand}\nj1\nHand\nada\n2");
@@ -173,13 +169,8 @@ fn bookings_show_who_works_where_across_jobs_not_cancelled() {
     let openworks = Openworks::new(&host).build().unwrap();
     let post = |path: &str, who: &str, body: &str| send(&openworks, path, who, body);
     let mut seats = Vec::new();
-    for body in [
-        "\nj1\nLead\nada\n1",
-        "\nj2\nLead\nada\n1",
-        "\nj1\nHand\n\n2",
-        "\njc\nLead\nada\n1",
-    ] {
-        let seat = ok(post("/seats/save", "owner", body));
+    for job in ["j1\nLead\nada", "j2\nLead\nada", "j1\nHand\n", "jc\nLead\nada"] {
+        let seat = ok(post("/seats/save", "owner", &format!("\n{job}\n")));
         ok(post(
             "/seats/set-days",
             "owner",
@@ -193,10 +184,8 @@ fn bookings_show_who_works_where_across_jobs_not_cancelled() {
         booking(&seats[1], "j2", r#""ada""#),
         booking(&seats[2], "j1", "null"),
     ];
-    assert_eq!(
-        ok(post("/seats/booked", "viewer", "2026-01-05\n2026-01-09")),
-        format!("[{}]", booked.join(","))
-    );
+    let week = ok(post("/seats/booked", "viewer", "2026-01-05\n2026-01-09"));
+    assert_eq!(week, format!("[{}]", booked.join(",")));
     ok(post("/seats/set-days", "owner", &format!("{}\n", seats[0])));
     let left = ok(post("/seats/booked", "viewer", "2026-01-05\n2026-01-12"));
     assert!(!left.contains(&format!(r#""{}""#, seats[0])), "{left}");

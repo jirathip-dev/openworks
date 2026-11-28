@@ -131,13 +131,7 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
             Some(vec![row])
         }
         workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
-        seats::GET => Some(vec![
-            ["s1", "jo", "Lead", "w1"]
-                .map(|field| Value::Text(field.to_owned()))
-                .into_iter()
-                .chain([Value::Int(1)])
-                .collect(),
-        ]),
+        seats::GET => Some(vec![vec![params[1].clone(), Value::Text("jo".to_owned())]]),
         job_orders::GET => Some(vec![vec![
             params[1].clone(),
             Value::Text("jo".to_owned()),
