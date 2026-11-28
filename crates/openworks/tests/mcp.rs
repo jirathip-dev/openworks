@@ -1,5 +1,6 @@
 mod memory;
 
+use memory::{ok, send};
 use openworks::{Offer, Openworks, Tool};
 use openworks_core::{Fail, Role, Row, Tx, Value, Word};
 use openworks_db::{AUDIT, EVENT, clients, members};
@@ -169,7 +170,7 @@ fn a_read_tool_answers_as_the_token_signs_in() {
             r#"[{\"id\":\"c1\",\"name\":\"Acme\",\"host_ref\":null,\"deactivated_at\":null,\"ext\":{}}]"#
         )
     );
-    assert!(host.store().audit.is_empty());
+    assert_eq!(host.store().audit, Vec::<Value>::new());
 }
 
 #[test]
@@ -183,8 +184,12 @@ fn a_write_runs_once_the_person_confirms_it_with_one_audit_row_and_one_event() {
     );
 
     assert_eq!(lines[1..], [ASK.to_owned(), answered(1, false, "id2")]);
+    let openworks = Openworks::new(&host).build().unwrap();
+    assert_eq!(
+        ok(send(&openworks, "/clients/list", "viewer", "")),
+        r#"[{"id":"id2","name":"Acme","host_ref":null,"deactivated_at":null,"ext":{}}]"#
+    );
     let store = host.store();
-    assert_eq!(store.clients, [("id2".to_owned(), "Acme".to_owned())]);
     assert_eq!(
         (store.audit.as_slice(), store.events.as_slice()),
         (&[text("clients.save")][..], &[text("clients.save")][..])
@@ -208,8 +213,8 @@ fn a_declined_proposal_writes_nothing() {
             answered(1, true, "the person declined: nothing was written")
         ]
     );
-    assert!(host.store().clients.is_empty());
-    assert!(host.store().audit.is_empty());
+    assert_eq!(host.store().clients, Vec::<(String, String)>::new());
+    assert_eq!(host.store().audit, Vec::<Value>::new());
 }
 
 #[test]
@@ -227,7 +232,7 @@ fn a_client_that_cannot_ask_the_person_writes_nothing() {
             "this client cannot ask the person to confirm: nothing was written"
         )
     );
-    assert!(host.store().clients.is_empty());
+    assert_eq!(host.store().clients, Vec::<(String, String)>::new());
 }
 
 #[test]
@@ -241,7 +246,7 @@ fn a_confirmed_write_still_needs_the_word() {
     );
 
     assert_eq!(lines[2], answered(1, true, "needs write"));
-    assert!(host.store().clients.is_empty());
+    assert_eq!(host.store().clients, Vec::<(String, String)>::new());
 }
 
 #[test]
