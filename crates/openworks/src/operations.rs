@@ -2,6 +2,7 @@ use openworks_core::{Mount, Reach};
 
 use crate::{
     approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks,
+    teams, workers,
 };
 
 openworks_core::operations! {
@@ -72,13 +73,20 @@ openworks_core::operations! {
     EquipmentNeeds => equipment::NEEDS,
     EquipmentTimeline => equipment::TIMELINE,
     ExportCreate => exports::CREATE,
+    WorkerList => workers::LIST,
+    WorkerGet => workers::GET,
+    WorkerMe => workers::ME,
+    WorkerSave => workers::SAVE,
+    WorkerSetActive => workers::SET_ACTIVE,
+    TeamList => teams::LIST,
+    TeamSave => teams::SAVE,
 }
 
 pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 11] = [
+const HOMES: [(&str, &str); 13] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -90,6 +98,8 @@ const HOMES: [(&str, &str); 11] = [
     ("/tasks", "tasks"),
     ("/equipment", "equipment"),
     ("/exports", "exports"),
+    ("/workers", "workers"),
+    ("/teams", "teams"),
 ];
 
 impl Operation {
@@ -132,6 +142,10 @@ impl Operation {
             | Self::EquipmentNeeds
             | Self::EquipmentTimeline => ("/equipment", "equipment"),
             Self::ExportCreate => ("/exports", "exports"),
+            Self::WorkerList | Self::WorkerGet | Self::WorkerMe | Self::WorkerSave | Self::WorkerSetActive => {
+                ("/workers", "workers")
+            }
+            Self::TeamList | Self::TeamSave => ("/teams", "teams"),
             _ => ("/projects", "projects"),
         }
     }

@@ -22,7 +22,11 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0009_job_orders", include_str!("../migrations/0009_job_orders.sql")),
     ("0010_tasks", include_str!("../migrations/0010_tasks.sql")),
     ("0011_host_refs", include_str!("../migrations/0011_host_refs.sql")),
-    ("0012_equipment", include_str!("../migrations/0012_equipment.sql")),
+    (
+        "0012_workers_and_teams",
+        include_str!("../migrations/0012_workers_and_teams.sql"),
+    ),
+    ("0013_equipment", include_str!("../migrations/0013_equipment.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -388,6 +392,8 @@ tables! {
         "task_id", "job_id", "code", "name", "color", "start_offset", "days", "planned_hours", "weight", "sort",
         "remark", "archived_at", "host_ref"
     ],
+    "teams": ["team_id", "name"],
+    "workers": ["worker_id", "name", "title", "team_id", "company", "person_id", "active"],
     "equipment": ["equipment_id", "tag", "name", "kind", "place", "holder_job_id", "status"],
     "equipment_bookings": ["booking_id", "equipment_id", "job_id", "task_id", "starts_on", "ends_on", "status"],
     "equipment_needs": ["need_id", "job_id", "task_id", "kind", "starts_on", "ends_on", "booking_id"],
@@ -421,6 +427,41 @@ pub mod tasks {
     pub const IMPORT: &str = "with added as (insert into works.tasks (org_id, task_id, job_id, code, name, start_offset, days, planned_hours, sort, host_ref) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) on conflict (org_id, host_ref) do nothing returning task_id) select task_id from added union all select task_id from works.tasks where org_id = $1 and host_ref = $10";
 }
 
+/// The queries on teams.
+pub mod teams {
+    /// Lists the org's teams by name: id and name.
+    pub const LIST: &str = "select team_id, name from works.teams where org_id = $1 order by name, team_id";
+
+    /// Reads one team, with the columns `LIST` reads.
+    pub const GET: &str = "select team_id, name from works.teams where org_id = $1 and team_id = $2";
+
+    /// Adds a team with its name.
+    pub const ADD: &str = "insert into works.teams (org_id, team_id, name) values ($1, $2, $3)";
+
+    /// Renames a team.
+    pub const SAVE: &str = "update works.teams set name = $3 where org_id = $1 and team_id = $2 returning team_id";
+}
+
+/// The queries on workers.
+pub mod workers {
+    /// Lists the org's workers by name: id, name, title, team, company (null for own staff), person and active.
+    pub const LIST: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 order by name, worker_id";
+
+    /// Reads one worker, with the columns `LIST` reads.
+    pub const GET: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 and worker_id = $2";
+
+    /// Reads the worker a person signs in as, with the columns `LIST` reads.
+    pub const ME: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 and person_id = $2";
+
+    /// Adds a worker with their name, title, team, company and person.
+    pub const ADD: &str = "insert into works.workers (org_id, worker_id, name, title, team_id, company, person_id) values ($1, $2, $3, $4, $5, $6, $7)";
+
+    /// Changes a worker's name, title, team, company and person.
+    pub const SAVE: &str = "update works.workers set name = $3, title = $4, team_id = $5, company = $6, person_id = $7 where org_id = $1 and worker_id = $2 returning worker_id";
+
+    /// Sets whether a worker is active.
+    pub const SET_ACTIVE: &str =
+        "update works.workers set active = $3 where org_id = $1 and worker_id = $2 returning worker_id";
 /// The queries on equipment, its bookings and its needs; a person bound in place of null narrows a read to the bookings and needs of the projects they are a member of.
 pub mod equipment {
     /// Lists every bookable thing by tag: id, tag, name, kind, place, holder job, status.

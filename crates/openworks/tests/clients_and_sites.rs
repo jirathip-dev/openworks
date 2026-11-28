@@ -1,35 +1,17 @@
 mod memory;
+mod table;
 
 use memory::{T0, ok, send};
 use openworks::Openworks;
-use openworks_core::{Fail, Id, Role, Row, Tx, Value};
-use openworks_db::{AUDIT, EVENT, clients, members, sites};
+use openworks_core::{Fail, Id, Row, Tx, Value};
+use openworks_db::{clients, sites};
+use table::{Trail, change, select, text};
 
 #[derive(Clone, Default)]
 struct Store {
     clients: Vec<Row>,
     sites: Vec<Row>,
-    events: Vec<(Value, Value)>,
-    audits: usize,
-}
-
-fn text(value: &str) -> Value {
-    Value::Text(value.to_owned())
-}
-
-fn select(table: &[Row], hit: impl Fn(&Row) -> bool) -> Vec<Row> {
-    table
-        .iter()
-        .filter(|row| hit(row))
-        .map(|row| row[1..].to_vec())
-        .collect()
-}
-
-fn change(table: &mut [Row], hit: impl Fn(&Row) -> bool, set: impl FnOnce(&mut Row)) -> Vec<Row> {
-    table.iter_mut().find(|row| hit(row)).map_or_else(Vec::new, |row| {
-        set(row);
-        vec![vec![row[1].clone()]]
-    })
+    trail: Trail,
 }
 
 fn deactivate(at: &Value) -> impl FnOnce(&mut Row) {
@@ -44,19 +26,10 @@ impl Tx for Store {
     fn run(&mut self, sql: &'static str, p: &[Value]) -> Result<Vec<Row>, Fail> {
         let keyed = |row: &Row| row[0] == p[0] && row[1] == p[1];
         let by_ref = |row: &Row| row[0] == p[0] && row[3] == p[3];
+        if let Some(rows) = self.trail.run(sql, p) {
+            return Ok(rows);
+        }
         Ok(match sql {
-            members::FIND => vec![vec![text(match &p[1] {
-                Value::Text(person) if person == "viewer" => Role::Viewer.name(),
-                _ => Role::Owner.name(),
-            })]],
-            AUDIT => {
-                self.audits += 1;
-                Vec::new()
-            }
-            EVENT => {
-                self.events.push((p[2].clone(), p[3].clone()));
-                Vec::new()
-            }
             clients::LIST => {
                 let mut rows = select(&self.clients, |row| row[0] == p[0]);
                 rows.sort_by_key(|row| format!("{:?}", row[1]));
@@ -123,8 +96,8 @@ fn a_client_is_saved_listed_got_and_renamed() {
     assert_eq!(send(&openworks, "/clients/save", "owner", "\n  \n").status, 400);
     assert_eq!(send(&openworks, "/clients/save", "viewer", "\nAcme").status, 403);
     assert_eq!(ok(send(&openworks, "/clients/list", "other", "")), "[]");
-    assert_eq!(host.store().audits, 3);
-    assert_eq!(host.store().events.len(), 3);
+    assert_eq!(host.store().trail.audits, 3);
+    assert_eq!(host.store().trail.events.len(), 3);
 }
 
 #[test]
@@ -139,7 +112,7 @@ fn a_client_is_deactivated_once_and_keeps_its_first_time() {
 
     assert!(ok(send(&openworks, "/clients/get", "owner", &id)).contains(&format!(r#""deactivated_at":{T0},"#)));
     assert_eq!(send(&openworks, "/clients/deactivate", "other", &id).status, 404);
-    assert_eq!(host.store().events.last().unwrap().0, text("clients.deactivate"));
+    assert_eq!(host.store().trail.events.last().unwrap().0, text("clients.deactivate"));
 }
 
 #[test]
@@ -165,7 +138,7 @@ fn a_host_syncs_its_clients_by_reference_and_twice_does_what_once_did() {
         openworks.sync_client(by, org, "", "Nameless"),
         Err(Fail::Invalid("a synced client needs a host_ref".to_owned()))
     );
-    let events = &host.store().events;
+    let events = &host.store().trail.events;
     assert_eq!(events.len(), 3);
     assert_eq!(events[0], (text("clients.sync"), text("cust-1\nAcme")));
 }

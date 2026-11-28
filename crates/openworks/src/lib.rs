@@ -30,6 +30,8 @@ mod series;
 mod setup;
 mod sites;
 mod tasks;
+mod teams;
+mod workers;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
 
