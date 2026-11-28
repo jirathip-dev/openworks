@@ -230,7 +230,7 @@ fn status(row: &Row) -> Result<JobStatus, Fail> {
     JobStatus::named(&plain(row.get(STATUS))).ok_or_else(|| Fail::Store("a job row holds no status".to_owned()))
 }
 
-fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
+pub(crate) fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
     first(tx.run(GET_SQL, &[org(who), text(id), reaching(who, word)])?)
 }
 
