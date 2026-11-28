@@ -1,4 +1,12 @@
 growth = 10
 
+[cargo]
+getrandom = "the server: random API tokens and ids from the OS"
+jsonwebtoken = "the server: checks an OIDC issuer's signed ID token"
+postgres = "the server: the sync Postgres driver behind the store and migrate"
+serde_json = "the server: reads the issuer's discovery document, keys and claims; already in the tree through jsonwebtoken"
+sha2 = "the server: keeps API tokens only as their SHA-256 hash"
+ureq = "the server: HTTPS (rustls) to the OIDC issuer for its discovery document and keys"
+
 [npm]
 typescript = "the type checker behind tsc --noEmit on web/"

@@ -31,6 +31,24 @@ Open field and site work: sites, projects, jobs, planner, crews, daily reports.
 | `templates` | the print and message templates |
 | `contract` | the OpenAPI document, each template's data shape and each event's payload, as JSON |
 
+## The standalone server
+
+`openworks-server migrate`, then `openworks-server init <org name> <owner email>` (once: with an org already there it
+answers that org's id), then `openworks-server serve`. It reads `OPENWORKS_DATABASE_URL`, `OPENWORKS_ISSUER` and
+`OPENWORKS_CLIENT_ID` (any OIDC issuer), and optionally `OPENWORKS_ADDRESS` (`127.0.0.1:8080`), `OPENWORKS_WEB` (the
+web bundle's folder, `web`), `OPENWORKS_FILES` (`files`) and `OPENWORKS_DUE_SECONDS` (`60`, how often due work runs).
+
+| Request | What |
+|---|---|
+| `POST /auth/sign-in` | `{"id_token", "org"}`: an ID token from the issuer for a member's email; answers `{"token"}` |
+| `POST /auth/tokens` | a token for the person's assistant: it may read, and its writes wait in the inbox |
+| `POST /auth/sign-out` | ends the token it is sent with |
+| `GET /inbox`, `POST /inbox/<id>/confirm`, `POST /inbox/<id>/decline` | the person's open proposals |
+| `POST <route>` | each route of `GET /openapi.json`, with `Authorization: Bearer <token>` |
+| `GET <anything else>` | a file of the web bundle, else its `index.html` |
+
+The server's Postgres test runs when `OPENWORKS_TEST_DATABASE_URL` names a database it may write to.
+
 ## Checks
 
 `./.gatekeeper/run check` runs every gate (packs core, rust and ts), the same locally, in a lane and in CI. The
