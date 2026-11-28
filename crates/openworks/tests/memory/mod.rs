@@ -1,4 +1,5 @@
-use std::cell::{Cell, RefCell};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 
 use openworks::{Caller, Files, Host, Openworks, Request, Response, Via};
 use openworks_core::{Fail, Id, Tx};
@@ -8,12 +9,24 @@ use crate::common::NoFiles;
 /// The time a test host's clock starts at.
 pub const T0: i64 = 1_700_000_000_000;
 
-/// A host over an in-memory store; `other` signs in to org `o2`, anyone else to `o1`.
+/// A host over an in-memory store, one transaction at a time; `other` signs in to org `o2`, anyone else to `o1`.
 #[derive(Default)]
 pub struct TestHost<S> {
-    pub committed: RefCell<S>,
-    pub next_id: Cell<u32>,
-    pub clock: Cell<i64>,
+    pub committed: Mutex<S>,
+    pub next_id: AtomicU32,
+    pub clock: AtomicI64,
+}
+
+impl<S> TestHost<S> {
+    /// The committed store.
+    pub fn store(&self) -> std::sync::MutexGuard<'_, S> {
+        self.committed.lock().unwrap()
+    }
+
+    /// Moves the clock to `T0` plus `after`.
+    pub fn set_clock(&self, after: i64) {
+        self.clock.store(after, Ordering::SeqCst);
+    }
 }
 
 impl<S: Tx + Clone> Host for &TestHost<S> {
@@ -28,19 +41,19 @@ impl<S: Tx + Clone> Host for &TestHost<S> {
     }
 
     fn transact(&self, work: &mut dyn FnMut(&mut dyn Tx) -> Result<(), Fail>) -> Result<(), Fail> {
-        let mut pending = self.committed.borrow().clone();
+        let mut committed = self.store();
+        let mut pending = committed.clone();
         work(&mut pending)?;
-        *self.committed.borrow_mut() = pending;
+        *committed = pending;
         Ok(())
     }
 
     fn id(&self) -> Id {
-        self.next_id.set(self.next_id.get() + 1);
-        Id(format!("id{}", self.next_id.get()))
+        Id(format!("id{}", self.next_id.fetch_add(1, Ordering::SeqCst) + 1))
     }
 
     fn now(&self) -> i64 {
-        T0 + self.clock.get()
+        T0 + self.clock.load(Ordering::SeqCst)
     }
 
     fn files(&self) -> &dyn Files {

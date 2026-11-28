@@ -3,7 +3,7 @@ use openworks_db::project_members::{ADD as ADD_MEMBER, CLEAR, LIST as MEMBERS_SQ
 use openworks_db::projects::{
     ADD, ARCHIVE as ARCHIVE_SQL, GET as GET_SQL, LINK as LINK_SQL, LIST as LIST_SQL, MOVE, SAVE as SAVE_SQL,
 };
-use openworks_db::{clients, lost_reasons, members, project_roles, sites, stages};
+use openworks_db::{clients, jobs, lost_reasons, members, project_roles, series, sites, stages};
 
 use crate::clients::{changed, lines, named, optional, org};
 
@@ -13,19 +13,19 @@ pub const LIST: Declaration = openworks_core::list!("list", needs: Read, record:
 /// Reads the project with the body's id, as a page of one record of kind `projects`.
 pub const GET: Declaration = openworks_core::list!("get", needs: Read, record: "projects", queries: [GET_SQL], get);
 
-/// Saves a project from `id`, `name`, `client_id`, `site_id`, `scope`, `tags` and `zone` lines, then `stage` when the empty id adds one; answers its id.
+/// Saves a project from `id`, `name`, `client_id`, `site_id`, `scope`, `tags` and `zone` lines, then `stage` when the empty id adds one with its first job, proposed; answers its id.
 pub const SAVE: Declaration = openworks_core::create!(
     "save",
     needs: Write,
-    queries: [GET_SQL, clients::GET, sites::GET, stages::GET, ADD, SAVE_SQL],
+    queries: [GET_SQL, clients::GET, sites::GET, stages::GET, ADD, SAVE_SQL, jobs::ADD],
     save,
 );
 
-/// Moves a project from a body of `id`, `stage`, then `reason` and `note` lines when the stage is lost.
+/// Moves a project from a body of `id`, `stage`, then `reason` and `note` lines when the stage is lost; winning opens and numbers its jobs.
 pub const MOVE_STAGE: Declaration = openworks_core::write!(
     "move-stage",
     needs: Write,
-    queries: [GET_SQL, stages::GET, lost_reasons::GET, MOVE],
+    queries: [GET_SQL, stages::GET, lost_reasons::GET, MOVE, jobs::LIST, jobs::MOVE, series::NEXT],
     move_stage,
 );
 
@@ -88,9 +88,10 @@ fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     let [id, name, client, site, scope, tags, zone, stage] = lines(call.body)?;
     let (client, site) = (optional(client), optional(site));
     place(who, tx, &client, &site)?;
+    let saved = if id.is_empty() { (call.fresh)().0 } else { id.to_owned() };
     let mut params = vec![
         org(who),
-        Value::Text(if id.is_empty() { call.id.0.as_str() } else { id }.to_owned()),
+        text(&saved),
         named(name)?,
         client,
         site,
@@ -110,7 +111,8 @@ fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     }
     params.push(text(stage));
     tx.run(ADD, &params)?;
-    Ok(call.id.0.clone())
+    tx.run(jobs::ADD, &[org(who), text(&(call.fresh)().0), text(&saved)])?;
+    Ok(saved)
 }
 
 fn move_stage(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
@@ -126,6 +128,7 @@ fn move_stage(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
             to.name()
         )));
     }
+    crate::jobs::follow(call, tx, id, from, to)?;
     let lost = if to == StageKind::Lost {
         lost(who, tx, reason, note, call.at)?
     } else if reason.is_empty() && note.is_empty() {
@@ -213,15 +216,15 @@ fn archive(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
     changed(tx.run(ARCHIVE_SQL, &[org(call.who), text(id), Value::Int(call.at)])?)
 }
 
-fn project(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
+pub(crate) fn project(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
     first(tx.run(GET_SQL, &[org(who), text(id), reaching(who, word)])?)
 }
 
-fn first(rows: Vec<Row>) -> Result<Row, Fail> {
+pub(crate) fn first(rows: Vec<Row>) -> Result<Row, Fail> {
     rows.into_iter().next().ok_or(Fail::NotFound)
 }
 
-fn reaching(who: &Who, word: Word) -> Value {
+pub(crate) fn reaching(who: &Who, word: Word) -> Value {
     match who.role.grants(word) {
         Some(Scope::Own) => text(&who.person.0),
         _ => Value::Null,
@@ -253,15 +256,31 @@ fn tagged(tags: &str) -> String {
     kept.join(",")
 }
 
-fn plain(value: Option<&Value>) -> String {
+pub(crate) fn plain(value: Option<&Value>) -> String {
     match value {
         Some(Value::Text(text)) => text.clone(),
         _ => String::new(),
     }
 }
 
-fn text(value: &str) -> Value {
+pub(crate) fn text(value: &str) -> Value {
     Value::Text(value.to_owned())
+}
+
+pub(crate) fn reopened(who: &Who, tx: &mut dyn Tx, id: &str) -> Result<(), Fail> {
+    let row = project(who, tx, id, Word::Write)?;
+    if kind(who, tx, &plain(row.get(STAGE)))? != StageKind::Done {
+        return Ok(());
+    }
+    let won = tx
+        .run(stages::LIST, &[org(who)])?
+        .into_iter()
+        .find(|stage| stage.get(2) == Some(&text(StageKind::Won.name())))
+        .and_then(|stage| stage.into_iter().next())
+        .ok_or_else(|| Fail::Invalid("the company has no won stage".to_owned()))?;
+    let won_at = row.get(WON_AT).cloned().unwrap_or(Value::Null);
+    let params = [org(who), text(id), won, won_at, Value::Null, Value::Null, text("")];
+    changed(tx.run(MOVE, &params)?).map(drop)
 }
 
 pub(crate) fn record(row: Row, fields: &[&'static str]) -> Result<Record, Fail> {

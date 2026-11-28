@@ -37,20 +37,20 @@ fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
         if tx.run(CLIENT, &[org(call.who), client.clone()])?.is_empty() {
             return Err(Fail::NotFound);
         }
-        (ADD, call.id.0.as_str())
+        (ADD, (call.fresh)().0)
     } else {
-        (SAVE_SQL, id)
+        (SAVE_SQL, id.to_owned())
     };
     let params = [
         org(call.who),
-        Value::Text(site.to_owned()),
+        Value::Text(site.clone()),
         client,
         named(name)?,
         Value::Text(address.to_owned()),
         Value::Text(map_url.to_owned()),
     ];
     let rows = tx.run(sql, &params)?;
-    if sql == ADD { Ok(site.to_owned()) } else { changed(rows) }
+    if sql == ADD { Ok(site) } else { changed(rows) }
 }
 
 fn deactivate(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
