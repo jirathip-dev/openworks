@@ -1,8 +1,8 @@
 use openworks_core::{Mount, Reach};
 
 use crate::{
-    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks,
-    teams, workers,
+    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, setup, sites,
+    tasks, teams, workers,
 };
 
 openworks_core::operations! {
@@ -72,6 +72,13 @@ openworks_core::operations! {
     EquipmentNeed => equipment::NEED,
     EquipmentNeeds => equipment::NEEDS,
     EquipmentTimeline => equipment::TIMELINE,
+    PlanGroups => plans::GROUPS,
+    PlanGroupsSave => plans::GROUPS_SAVE,
+    PlanVersions => plans::VERSIONS,
+    PlanRestoreVersion => plans::RESTORE_VERSION,
+    PlanTemplates => plans::TEMPLATES,
+    PlanTemplatesSave => plans::TEMPLATES_SAVE,
+    PlanReplaceFromTemplate => plans::REPLACE_FROM_TEMPLATE,
     ExportCreate => exports::CREATE,
     WorkerList => workers::LIST,
     WorkerGet => workers::GET,
@@ -86,7 +93,7 @@ pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 13] = [
+const HOMES: [(&str, &str); 14] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -97,6 +104,7 @@ const HOMES: [(&str, &str); 13] = [
     ("/job-orders", "job_orders"),
     ("/tasks", "tasks"),
     ("/equipment", "equipment"),
+    ("/plans", "plans"),
     ("/exports", "exports"),
     ("/workers", "workers"),
     ("/teams", "teams"),
@@ -141,6 +149,13 @@ impl Operation {
             | Self::EquipmentNeed
             | Self::EquipmentNeeds
             | Self::EquipmentTimeline => ("/equipment", "equipment"),
+            Self::PlanGroups
+            | Self::PlanGroupsSave
+            | Self::PlanVersions
+            | Self::PlanRestoreVersion
+            | Self::PlanTemplates
+            | Self::PlanTemplatesSave
+            | Self::PlanReplaceFromTemplate => ("/plans", "plans"),
             Self::ExportCreate => ("/exports", "exports"),
             Self::WorkerList | Self::WorkerGet | Self::WorkerMe | Self::WorkerSave | Self::WorkerSetActive => {
                 ("/workers", "workers")
