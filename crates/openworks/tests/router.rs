@@ -125,7 +125,8 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
         | tasks::ARCHIVE
         | tasks::RESTORE
         | plans::GROUP_SAVE
-        | plans::TEMPLATE => Some(vec![vec![params[1].clone()]]),
+        | plans::TEMPLATE
+        | workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
         plans::VERSION => Some(vec![vec![
             params[1].clone(),
             Value::Text("jo".to_owned()),
@@ -141,7 +142,6 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
             row.resize(7, Value::Null);
             Some(vec![row])
         }
-        workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
         job_orders::GET => Some(vec![vec![
             params[1].clone(),
             Value::Text("jo".to_owned()),
