@@ -1,7 +1,7 @@
 mod memory;
 mod trail;
 
-use memory::{ok, send};
+use memory::send;
 use openworks::Openworks;
 use openworks_core::{Fail, Row, Tx, Value};
 use openworks_db::{equipment, tasks};
@@ -16,14 +16,9 @@ struct Store {
 }
 
 fn task_row(id: &Value) -> Vec<Row> {
-    let job = match id {
-        Value::Text(id) if id == "t1" => "j1",
-        Value::Text(id) if id == "t2" => "j2",
-        _ => return Vec::new(),
-    };
-    let mut row = vec![id.clone(), text(job)];
+    let mut row = vec![id.clone(), text("j1")];
     row.resize(12, Value::Null);
-    vec![row]
+    if *id == text("t1") { vec![row] } else { Vec::new() }
 }
 
 fn keyed(table: &[Row], p: &[Value]) -> Vec<Row> {
@@ -35,46 +30,42 @@ fn keyed(table: &[Row], p: &[Value]) -> Vec<Row> {
 }
 
 fn meets(row: &Row, from: &Value, to: &Value) -> bool {
-    let day = |value: &Value| match value {
-        Value::Text(day) => day.clone(),
-        _ => String::new(),
-    };
+    let day = |value: &Value| format!("{value:?}");
     day(&row[5]) <= day(to) && day(&row[6]) >= day(from)
 }
 
-fn reaches(row: &Row, person: &Value) -> bool {
-    !job_row(&row[3], person).is_empty()
+fn set(table: &mut [Row], p: &[Value], from: &Value, to: &Value) -> Vec<Row> {
+    let mut rows = table.iter_mut().filter(|row| row[..2] == p[..2] && row[7] == *from);
+    rows.next().map_or_else(Vec::new, |row| {
+        row[7] = to.clone();
+        vec![vec![p[1].clone()]]
+    })
 }
 
 impl Store {
-    fn tag(&self, equipment: &Value) -> Value {
-        self.things
-            .iter()
-            .find(|thing| thing[1] == *equipment)
-            .map_or(Value::Null, |thing| thing[2].clone())
-    }
-
     fn thing_rows(&mut self, sql: &'static str, p: &[Value]) -> Vec<Row> {
         match sql {
             equipment::LIST => {
-                let mut rows: Vec<Row> = self.things.iter().filter(|row| row[0] == p[0]).cloned().collect();
-                rows.sort_by_key(|row| format!("{:?}", row[2]));
-                rows.into_iter().map(|row| row[1..].to_vec()).collect()
+                self.things.sort_by_key(|row| format!("{:?}", row[2]));
+                self.things
+                    .iter()
+                    .filter(|row| row[0] == p[0])
+                    .map(|row| row[1..].to_vec())
+                    .collect()
             }
             equipment::LOCK => keyed(&self.things, p),
             equipment::ADD => {
                 self.things.push(p.to_vec());
                 Vec::new()
             }
-            equipment::SAVE => self
-                .things
-                .iter_mut()
-                .filter(|row| row[..2] == p[..2])
-                .map(|row| {
-                    row.clone_from_slice(p);
-                    vec![p[1].clone()]
-                })
-                .collect(),
+            equipment::SAVE => {
+                let saved = self
+                    .things
+                    .iter_mut()
+                    .find(|row| row[..2] == p[..2])
+                    .map(|row| row.clone_from_slice(p));
+                saved.map_or_else(Vec::new, |()| vec![vec![p[1].clone()]])
+            }
             _ => self.booking_rows(sql, p),
         }
     }
@@ -94,23 +85,17 @@ impl Store {
                 Vec::new()
             }
             equipment::BOOKING => keyed(&self.bookings, p),
-            equipment::CANCEL => self
-                .bookings
-                .iter_mut()
-                .filter(|row| row[..2] == p[..2] && row[7] == text("booked"))
-                .map(|row| {
-                    row[7] = text("cancelled");
-                    vec![p[1].clone()]
-                })
-                .collect(),
+            equipment::CANCEL => set(&mut self.bookings, p, &text("booked"), &text("cancelled")),
             equipment::TIMELINE => {
-                let mut rows: Vec<&Row> = self
-                    .bookings
-                    .iter()
-                    .filter(live)
-                    .filter(|row| meets(row, &p[1], &p[2]) && reaches(row, &p[3]))
-                    .collect();
-                rows.sort_by_key(|row| format!("{:?} {:?}", self.tag(&row[2]), row[5]));
+                let tag = |row: &Row| {
+                    self.things
+                        .iter()
+                        .find(|thing| thing[1] == row[2])
+                        .map(|thing| thing[2].clone())
+                };
+                let mut rows: Vec<&Row> = self.bookings.iter().filter(live).collect();
+                rows.retain(|row| meets(row, &p[1], &p[2]) && !job_row(&row[3], &p[3]).is_empty());
+                rows.sort_by_key(|row| format!("{:?} {:?}", tag(row), row[5]));
                 rows.into_iter().map(|row| row[1..7].to_vec()).collect()
             }
             _ => self.need_rows(sql, p),
@@ -127,19 +112,10 @@ impl Store {
             equipment::NEEDS => self
                 .needs
                 .iter()
-                .filter(|row| row[0] == p[0] && row[7] == Value::Null)
-                .filter(|row| !job_row(&row[2], &p[1]).is_empty())
+                .filter(|row| row[0] == p[0] && row[7] == Value::Null && !job_row(&row[2], &p[1]).is_empty())
                 .map(|row| row[1..7].to_vec())
                 .collect(),
-            equipment::FILL => self
-                .needs
-                .iter_mut()
-                .filter(|row| row[..2] == p[..2] && row[7] == Value::Null)
-                .map(|row| {
-                    row[7] = p[2].clone();
-                    vec![p[1].clone()]
-                })
-                .collect(),
+            equipment::FILL => set(&mut self.needs, p, &Value::Null, &p[2]),
             equipment::RELEASE => {
                 for row in self.needs.iter_mut().filter(|row| row[7] == p[1]) {
                     row[7] = Value::Null;
@@ -163,22 +139,27 @@ impl Tx for Store {
 
 type TestHost = memory::TestHost<Store>;
 
-fn answer(openworks: &Openworks<&TestHost>, path: &str, credential: &str, body: &str) -> (u16, String) {
-    let response = send(openworks, path, credential, body);
+fn at(openworks: &Openworks<&TestHost>, operation: &str, who: &str, body: &str) -> (u16, String) {
+    let response = send(openworks, &format!("/equipment/{operation}"), who, body);
     (response.status, response.body)
 }
 
-fn thing(openworks: &Openworks<&TestHost>, tag: &str, kind: &str) -> String {
-    ok(send(
-        openworks,
-        "/equipment/save",
-        "owner",
-        &format!("\n{tag}\n{tag}\n{kind}\nYard\n\n"),
-    ))
+fn done(openworks: &Openworks<&TestHost>, operation: &str, who: &str, body: &str) -> String {
+    let (status, body) = at(openworks, operation, who, body);
+    assert_eq!(status, 200, "{body}");
+    body
 }
 
-fn book(openworks: &Openworks<&TestHost>, body: &str) -> (u16, String) {
-    answer(openworks, "/equipment/book", "manager", body)
+fn thing(openworks: &Openworks<&TestHost>, tag: &str, kind: &str) -> String {
+    done(openworks, "save", "owner", &format!("\n{tag}\n{tag}\n{kind}\nYard\n\n"))
+}
+
+fn ids(listed: &str) -> Vec<&str> {
+    listed
+        .split(r#"{"id":""#)
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .collect()
 }
 
 #[test]
@@ -186,50 +167,38 @@ fn a_thing_keeps_its_tag_name_kind_place_holder_job_and_status() {
     let host = TestHost::default();
     let openworks = Openworks::new(&host).build().unwrap();
 
-    let van = ok(send(
+    let van = done(&openworks, "save", "owner", "\nV-1\nVan one\nVan\nYard\n\n");
+    let lift = done(
         &openworks,
-        "/equipment/save",
-        "owner",
-        "\nV-1\nVan one\nVan\nYard\n\n",
-    ));
-    let lift = ok(send(
-        &openworks,
-        "/equipment/save",
+        "save",
         "manager",
         "\nL-2\nLift two\nLift\nBay 4\nj1\nout_of_service",
-    ));
-    let moved = ok(send(
+    );
+    let moved = done(
         &openworks,
-        "/equipment/save",
+        "save",
         "member",
         &format!("{van}\nV-1\nVan one\nVan\nBay 4\nj1\nin_service"),
-    ));
+    );
 
     assert_eq!(moved, van);
     assert_eq!(
-        ok(send(&openworks, "/equipment/list", "viewer", "")),
+        done(&openworks, "list", "viewer", ""),
         format!(
             r#"[{{"id":"{lift}","tag":"L-2","name":"Lift two","kind":"Lift","place":"Bay 4","holder_job_id":"j1","status":"out_of_service","ext":{{}}}},{{"id":"{van}","tag":"V-1","name":"Van one","kind":"Van","place":"Bay 4","holder_job_id":"j1","status":"in_service","ext":{{}}}}]"#
         )
     );
+    let status = (400, "invalid: status is in_service or out_of_service".to_owned());
     assert_eq!(
-        answer(
-            &openworks,
-            "/equipment/save",
-            "owner",
-            "\nV-2\nVan two\nVan\n\n\nbroken"
-        ),
-        (400, "invalid: status is in_service or out_of_service".to_owned())
+        at(&openworks, "save", "owner", "\nV-2\nVan two\nVan\n\n\nbroken"),
+        status
     );
     assert_eq!(
-        answer(&openworks, "/equipment/save", "owner", "\n\nVan two"),
+        at(&openworks, "save", "owner", "\n\nVan two"),
         (400, "invalid: a tag is needed".to_owned())
     );
-    assert_eq!(
-        answer(&openworks, "/equipment/save", "member", "\nV-2\nVan two\n\n\nj2\n").0,
-        404
-    );
-    assert_eq!(answer(&openworks, "/equipment/save", "viewer", "\nV-2\nVan two").0, 403);
+    assert_eq!(at(&openworks, "save", "member", "\nV-2\nVan two\n\n\nj2\n").0, 404);
+    assert_eq!(at(&openworks, "save", "viewer", "\nV-2\nVan two").0, 403);
     assert_eq!(host.store().trail.audits, 3);
     assert_eq!(host.store().trail.events, vec![text("equipment.save"); 3]);
 }
@@ -240,34 +209,24 @@ fn two_live_bookings_of_one_thing_cannot_overlap() {
     let openworks = Openworks::new(&host).build().unwrap();
     let van = thing(&openworks, "V-1", "Van");
     let other = thing(&openworks, "V-2", "Van");
+    let book = |thing: &str, days: &str| at(&openworks, "book", "manager", &format!("{thing}\nj2\n\n{days}"));
 
-    let first = ok(send(
+    let first = done(
         &openworks,
-        "/equipment/book",
+        "book",
         "member",
         &format!("{van}\nj1\nt1\n2026-01-05\n2026-01-09"),
-    ));
+    );
 
-    assert_eq!(
-        book(&openworks, &format!("{van}\nj2\n\n2026-01-09\n2026-01-12")),
-        (400, format!("invalid: V-1 is booked on those days by {first}"))
-    );
-    assert_eq!(book(&openworks, &format!("{van}\nj2\n\n2026-01-01\n2026-01-20")).0, 400);
-    let next = book(&openworks, &format!("{van}\nj2\n\n2026-01-10\n2026-01-12"));
-    assert_eq!(next.0, 200, "{}", next.1);
-    assert_eq!(
-        book(&openworks, &format!("{other}\nj2\n\n2026-01-05\n2026-01-09")).0,
-        200
-    );
-    assert_eq!(
-        answer(&openworks, "/equipment/cancel", "manager", &first),
-        (200, first.clone())
-    );
-    assert_eq!(
-        answer(&openworks, "/equipment/cancel", "manager", &first),
-        (400, format!("invalid: booking {first} is cancelled"))
-    );
-    assert_eq!(book(&openworks, &format!("{van}\nj2\n\n2026-01-05\n2026-01-09")).0, 200);
+    let clash = (400, format!("invalid: V-1 is booked on those days by {first}"));
+    assert_eq!(book(&van, "2026-01-09\n2026-01-12"), clash);
+    assert_eq!(book(&van, "2026-01-01\n2026-01-20"), clash);
+    assert_eq!(book(&van, "2026-01-10\n2026-01-12").0, 200);
+    assert_eq!(book(&other, "2026-01-05\n2026-01-09").0, 200);
+    assert_eq!(at(&openworks, "cancel", "manager", &first), (200, first.clone()));
+    let again = (400, format!("invalid: booking {first} is cancelled"));
+    assert_eq!(at(&openworks, "cancel", "manager", &first), again);
+    assert_eq!(book(&van, "2026-01-05\n2026-01-09").0, 200);
     let live = host
         .store()
         .bookings
@@ -275,6 +234,7 @@ fn two_live_bookings_of_one_thing_cannot_overlap() {
         .filter(|row| row[7] == text("booked"))
         .count();
     assert_eq!(live, 3);
+    assert_eq!(host.store().trail.events.len(), 7);
 }
 
 #[test]
@@ -282,37 +242,22 @@ fn a_booking_is_refused_off_its_job_out_of_order_or_out_of_service() {
     let host = TestHost::default();
     let openworks = Openworks::new(&host).build().unwrap();
     let van = thing(&openworks, "V-1", "Van");
-    let other = thing(&openworks, "V-2", "Van");
+    let book = |who: &str, body: &str| at(&openworks, "book", who, &format!("{van}\n{body}"));
 
-    assert_eq!(
-        book(&openworks, &format!("{van}\nj2\nt1\n2026-01-20\n2026-01-21")),
-        (400, "invalid: task t1 is not on job j2".to_owned())
-    );
-    assert_eq!(
-        book(&openworks, &format!("{van}\nj2\n\n2026-01-22\n2026-01-21")),
-        (400, "invalid: 2026-01-21 is before 2026-01-22".to_owned())
-    );
-    assert_eq!(
-        answer(
-            &openworks,
-            "/equipment/book",
-            "member",
-            &format!("{van}\nj2\n\n2026-01-20\n2026-01-21")
-        )
-        .0,
-        404
-    );
-    ok(send(
+    let off_job = (400, "invalid: task t1 is not on job j2".to_owned());
+    assert_eq!(book("manager", "j2\nt1\n2026-01-20\n2026-01-21"), off_job);
+    let order = (400, "invalid: 2026-01-21 is before 2026-01-22".to_owned());
+    assert_eq!(book("manager", "j2\n\n2026-01-22\n2026-01-21"), order);
+    assert_eq!(book("member", "j2\n\n2026-01-20\n2026-01-21").0, 404);
+    done(
         &openworks,
-        "/equipment/save",
+        "save",
         "owner",
-        &format!("{other}\nV-2\nV-2\nVan\nYard\n\nout_of_service"),
-    ));
-    assert_eq!(
-        book(&openworks, &format!("{other}\nj2\n\n2026-02-01\n2026-02-02")),
-        (400, "invalid: V-2 is out of service".to_owned())
+        &format!("{van}\nV-1\nV-1\nVan\nYard\n\nout_of_service"),
     );
-    assert!(host.store().bookings.is_empty());
+    let out = (400, "invalid: V-1 is out of service".to_owned());
+    assert_eq!(book("manager", "j2\n\n2026-02-01\n2026-02-02"), out);
+    assert_eq!(host.store().bookings.len(), 0);
 }
 
 #[test]
@@ -322,50 +267,32 @@ fn a_need_stays_open_until_a_booking_of_its_kind_fills_it() {
     let van = thing(&openworks, "V-1", "Van");
     let lift = thing(&openworks, "L-1", "Lift");
 
-    let need = ok(send(
-        &openworks,
-        "/equipment/need",
-        "member",
-        "j1\nt1\nVan\n2026-01-05\n2026-01-09",
-    ));
+    let need = done(&openworks, "need", "member", "j1\nt1\nVan\n2026-01-05\n2026-01-09");
 
     assert_eq!(
-        ok(send(&openworks, "/equipment/needs", "viewer", "")),
+        done(&openworks, "needs", "viewer", ""),
         format!(
             r#"[{{"id":"{need}","job_id":"j1","task_id":"t1","kind":"Van","starts_on":"2026-01-05","ends_on":"2026-01-09","ext":{{}}}}]"#
         )
     );
+    let kind = (400, "invalid: L-1 is not of the kind the need names".to_owned());
+    assert_eq!(at(&openworks, "fill", "manager", &format!("{need}\n{lift}")), kind);
+    let booking = done(&openworks, "fill", "manager", &format!("{need}\n{van}"));
+    assert_eq!(done(&openworks, "needs", "viewer", ""), "[]");
     assert_eq!(
-        answer(&openworks, "/equipment/fill", "manager", &format!("{need}\n{lift}")),
-        (400, "invalid: L-1 is not of the kind the need names".to_owned())
-    );
-    let booking = ok(send(
-        &openworks,
-        "/equipment/fill",
-        "manager",
-        &format!("{need}\n{van}"),
-    ));
-    assert_eq!(ok(send(&openworks, "/equipment/needs", "viewer", "")), "[]");
-    assert_eq!(
-        ok(send(
-            &openworks,
-            "/equipment/timeline",
-            "viewer",
-            "2026-01-01\n2026-01-31"
-        )),
+        done(&openworks, "timeline", "viewer", "2026-01-01\n2026-01-31"),
         format!(
             r#"[{{"id":"{booking}","equipment_id":"{van}","job_id":"j1","task_id":"t1","starts_on":"2026-01-05","ends_on":"2026-01-09","ext":{{}}}}]"#
         )
     );
+    let filled = (400, format!("invalid: need {need} is booked"));
+    assert_eq!(at(&openworks, "fill", "manager", &format!("{need}\n{van}")), filled);
+    done(&openworks, "cancel", "manager", &booking);
+    assert_eq!(ids(&done(&openworks, "needs", "viewer", "")), [need.as_str()]);
+    let unnamed = (400, "invalid: a need names a kind".to_owned());
     assert_eq!(
-        answer(&openworks, "/equipment/fill", "manager", &format!("{need}\n{van}")),
-        (400, format!("invalid: need {need} is booked"))
-    );
-    ok(send(&openworks, "/equipment/cancel", "manager", &booking));
-    assert!(ok(send(&openworks, "/equipment/needs", "viewer", "")).contains(&need));
-    assert_eq!(
-        answer(&openworks, "/equipment/need", "owner", "j1\n\n\n2026-01-05\n2026-01-09"),
-        (400, "invalid: a need names a kind".to_owned())
+        at(&openworks, "need", "owner", "j1\n\n\n2026-01-05\n2026-01-09"),
+        unnamed
     );
 }
 
@@ -375,57 +302,18 @@ fn the_timeline_lists_the_live_bookings_meeting_the_days_thing_by_thing() {
     let openworks = Openworks::new(&host).build().unwrap();
     let van = thing(&openworks, "V-1", "Van");
     let lift = thing(&openworks, "L-1", "Lift");
-    let late = ok(send(
-        &openworks,
-        "/equipment/book",
-        "owner",
-        &format!("{van}\nj1\n\n2026-01-12\n2026-01-14"),
-    ));
-    let early = ok(send(
-        &openworks,
-        "/equipment/book",
-        "owner",
-        &format!("{van}\nj2\n\n2026-01-02\n2026-01-06"),
-    ));
-    let lifted = ok(send(
-        &openworks,
-        "/equipment/book",
-        "owner",
-        &format!("{lift}\nj1\n\n2026-01-08\n2026-01-08"),
-    ));
-    let outside = ok(send(
-        &openworks,
-        "/equipment/book",
-        "owner",
-        &format!("{lift}\nj1\n\n2026-02-01\n2026-02-03"),
-    ));
-    let cancelled = ok(send(
-        &openworks,
-        "/equipment/book",
-        "owner",
-        &format!("{van}\nj1\n\n2026-01-08\n2026-01-09"),
-    ));
-    ok(send(&openworks, "/equipment/cancel", "owner", &cancelled));
+    let book = |thing: &str, body: &str| done(&openworks, "book", "owner", &format!("{thing}\n{body}"));
+    let late = book(&van, "j1\n\n2026-01-12\n2026-01-14");
+    let early = book(&van, "j2\n\n2026-01-02\n2026-01-06");
+    let lifted = book(&lift, "j1\n\n2026-01-08\n2026-01-08");
+    book(&lift, "j1\n\n2026-02-01\n2026-02-03");
+    let cancelled = book(&van, "j1\n\n2026-01-08\n2026-01-09");
+    done(&openworks, "cancel", "owner", &cancelled);
 
-    let ids = |credential: &str| {
-        let timeline = ok(send(
-            &openworks,
-            "/equipment/timeline",
-            credential,
-            "2026-01-05\n2026-01-12",
-        ));
-        [&lifted, &early, &late, &outside, &cancelled]
-            .into_iter()
-            .filter_map(|id| timeline.find(&format!(r#""id":"{id}""#)).map(|at| (at, id.clone())))
-            .collect::<std::collections::BTreeMap<_, _>>()
-            .into_values()
-            .collect::<Vec<_>>()
-    };
+    let timeline = |who: &str| done(&openworks, "timeline", who, "2026-01-05\n2026-01-12");
 
-    assert_eq!(ids("viewer"), [lifted.clone(), early.clone(), late.clone()]);
-    assert_eq!(ids("member"), [lifted, late]);
-    assert_eq!(
-        answer(&openworks, "/equipment/timeline", "viewer", "2026-01-12\n2026-01-05"),
-        (400, "invalid: 2026-01-05 is before 2026-01-12".to_owned())
-    );
+    assert_eq!(ids(&timeline("viewer")), [&lifted, &early, &late]);
+    assert_eq!(ids(&timeline("member")), [&lifted, &late]);
+    let order = (400, "invalid: 2026-01-05 is before 2026-01-12".to_owned());
+    assert_eq!(at(&openworks, "timeline", "viewer", "2026-01-12\n2026-01-05"), order);
 }
