@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 use std::sync::{Barrier, Condvar, Mutex};
 use std::thread;
 
-use openworks::{Caller, Files, Host, Openworks, Period, Request, Response, Series};
+use openworks::{Caller, Files, Host, Openworks, Period, Request, Response, Series, Via};
 use openworks_core::{Change, Declaration, Fail, Hook, Id, Mount, Reach, Role, Row, Tx, Value};
 use openworks_db::{attachments, members, series};
 
@@ -102,6 +102,7 @@ impl Host for &SharedHost {
             person: Id("p1".to_owned()),
             email: format!("{credential}@o.test"),
             org: Id(org.to_owned()),
+            via: Via::Person,
         })
     }
 

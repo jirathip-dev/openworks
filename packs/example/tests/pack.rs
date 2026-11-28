@@ -1,6 +1,6 @@
 use std::cell::{Cell, RefCell};
 
-use openworks::{Caller, Files, Host, Openworks, Request, Response};
+use openworks::{Caller, Files, Host, Openworks, Request, Response, Via};
 use openworks_core::{Approval, Fail, Id, Row, Tx, Value, Word};
 use openworks_pack_example::{CHANGES, LONGEST, pack};
 
@@ -47,6 +47,7 @@ impl Host for &PackHost {
             person: Id("p1".to_owned()),
             email: "p1@o.test".to_owned(),
             org: Id("o1".to_owned()),
+            via: Via::Person,
         })
     }
 
@@ -158,6 +159,7 @@ fn the_pack_brings_its_route_approval_kind_and_print() {
         [Approval {
             key: "example.handover",
             needs: Word::Approve,
+            signature: true,
         }]
     );
     let prints: Vec<_> = openworks

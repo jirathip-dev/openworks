@@ -26,6 +26,7 @@ pub fn pack() -> Pack {
         approvals: vec![Approval {
             key: "example.handover",
             needs: Word::Approve,
+            signature: true,
         }],
         mounts: vec![Mount::new("/example", "example").operation(&WHOAMI, Reach::Org)],
         prints: vec![Print {

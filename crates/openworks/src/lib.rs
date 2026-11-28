@@ -5,9 +5,10 @@ use openworks_core::{
     Row, Tx, Value, Who,
 };
 
-pub use openworks_core::Files;
+pub use openworks_core::{Files, Via};
 pub use series::{Period, Series};
 
+mod approvals;
 mod due;
 mod files;
 mod json;
@@ -25,11 +26,17 @@ openworks_core::operations! {
     MemberRemove => members::REMOVE,
     FileAttach => files::ATTACH,
     FileList => files::LIST,
+    ApprovalSaveKind => approvals::SAVE_KIND,
+    ApprovalRequest => approvals::REQUEST,
+    ApprovalDecide => approvals::DECIDE,
+    ApprovalReset => approvals::RESET,
+    ApprovalPending => approvals::PENDING,
+    ApprovalRecent => approvals::RECENT,
 }
 
 const KEY: &str = "orgs";
 
-const HOMES: [(&str, &str); 2] = [("/orgs", KEY), ("/files", "files")];
+const HOMES: [(&str, &str); 3] = [("/orgs", KEY), ("/files", "files"), ("/approvals", "approvals")];
 
 impl Operation {
     /// The path prefix and extension key the operation is mounted under.
@@ -37,6 +44,12 @@ impl Operation {
         match self {
             Self::OrgList | Self::OrgRename | Self::MemberList | Self::MemberSet | Self::MemberRemove => ("/orgs", KEY),
             Self::FileAttach | Self::FileList => ("/files", "files"),
+            Self::ApprovalSaveKind
+            | Self::ApprovalRequest
+            | Self::ApprovalDecide
+            | Self::ApprovalReset
+            | Self::ApprovalPending
+            | Self::ApprovalRecent => ("/approvals", "approvals"),
         }
     }
 
@@ -61,12 +74,13 @@ impl Operation {
     }
 }
 
-/// The person a credential signs in, by the host's id and email, and the org they act for.
+/// The person a credential signs in, by the host's id and email, the org they act for and who acts for them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Caller {
     pub person: Id,
     pub email: String,
     pub org: Id,
+    pub via: Via,
 }
 
 /// What openworks needs from the program that embeds it.
@@ -291,6 +305,7 @@ impl<H: Host> Openworks<H> {
             person: by,
             org,
             role: Role::Owner,
+            via: Via::Person,
         };
         let route = Route {
             declaration: &members::SET,
@@ -318,6 +333,7 @@ impl<H: Host> Openworks<H> {
             person: caller.person.clone(),
             org: caller.org.clone(),
             role: role.ok_or_else(|| Fail::Store("a member row holds no role".to_owned()))?,
+            via: caller.via,
         };
         if tied {
             let change = Change {
@@ -367,6 +383,7 @@ impl<H: Host> Openworks<H> {
                 at: change.at,
                 id: self.host.id(),
                 files: self.host.files(),
+                approvals: &self.approvals,
             };
             let answer = self.run(declaration, &call, tx)?;
             if changes {
