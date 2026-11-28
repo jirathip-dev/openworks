@@ -19,6 +19,16 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ),
     ("0007_projects", include_str!("../migrations/0007_projects.sql")),
     ("0008_jobs", include_str!("../migrations/0008_jobs.sql")),
+    ("0009_job_orders", include_str!("../migrations/0009_job_orders.sql")),
+    ("0010_tasks", include_str!("../migrations/0010_tasks.sql")),
+    ("0011_host_refs", include_str!("../migrations/0011_host_refs.sql")),
+    (
+        "0012_workers_and_teams",
+        include_str!("../migrations/0012_workers_and_teams.sql"),
+    ),
+    ("0013_equipment", include_str!("../migrations/0013_equipment.sql")),
+    ("0014_plans", include_str!("../migrations/0014_plans.sql")),
+    ("0015_seats", include_str!("../migrations/0015_seats.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -38,6 +48,13 @@ pub mod orgs {
 
     /// Lists every org, for due work.
     pub const ALL: &str = "select org_id from works.orgs";
+}
+
+/// The queries on events.
+pub mod events {
+    /// Lists the events after a sequence number, oldest first, at most a page: id, sequence number, kind, body, time.
+    pub const SINCE: &str =
+        "select event_id, seq, kind, body, at from works.events where org_id = $1 and seq > $2 order by seq limit $3";
 }
 
 /// The queries on idempotency keys.
@@ -147,6 +164,9 @@ pub mod clients {
 
     /// Adds the client the host knows by a reference, or renames it.
     pub const SYNC: &str = "insert into works.clients (org_id, client_id, name, host_ref) values ($1, $2, $3, $4) on conflict (org_id, host_ref) do update set name = excluded.name returning client_id";
+
+    /// Adds the client a host knows by a reference unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.clients (org_id, client_id, name, host_ref) values ($1, $2, $3, $4) on conflict (org_id, host_ref) do nothing returning client_id) select client_id from added union all select client_id from works.clients where org_id = $1 and host_ref = $4";
 }
 
 /// The queries on sites.
@@ -166,6 +186,9 @@ pub mod sites {
 
     /// Deactivates a site, keeping the first time it was.
     pub const DEACTIVATE: &str = "update works.sites set deactivated_at = coalesce(deactivated_at, $3) where org_id = $1 and site_id = $2 returning site_id";
+
+    /// Adds the site a host knows by a reference, under a client, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.sites (org_id, site_id, client_id, name, address, map_url, host_ref) values ($1, $2, $3, $4, $5, $6, $7) on conflict (org_id, host_ref) do nothing returning site_id) select site_id from added union all select site_id from works.sites where org_id = $1 and host_ref = $7";
 }
 
 /// The queries on the company's stages.
@@ -209,8 +232,8 @@ pub mod project_roles {
 
 /// The queries on projects; a person bound in place of null narrows a read to the projects they are a member of.
 pub mod projects {
-    /// Lists the projects: id, name, client, site, scope, tags, zone, stage, parent, link kind, won, lost, lost reason, lost note, archived.
-    pub const LIST: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and ($2::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $2)) order by p.name, p.project_id";
+    /// Lists a page of the projects at a stage, of a client and archived or not, each filter off when null: id, name, client, site, scope, tags, zone, stage, parent, link kind, won, lost, lost reason, lost note, archived.
+    pub const LIST: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and ($2::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $2)) and ($3::text is null or p.stage_key = $3) and ($4::text is null or p.client_id = $4) and ($5::bigint is null or (p.archived_at is not null) = ($5 = 1)) order by p.name, p.project_id limit $6 offset $7";
 
     /// Reads one project, with the columns `LIST` reads.
     pub const GET: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and p.project_id = $2 and ($3::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $3))";
@@ -229,6 +252,9 @@ pub mod projects {
 
     /// Archives a project, keeping the first time it was.
     pub const ARCHIVE: &str = "update works.projects set archived_at = coalesce(archived_at, $3) where org_id = $1 and project_id = $2 returning project_id";
+
+    /// Adds the project a host knows by a reference, at a stage, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.projects (org_id, project_id, name, client_id, site_id, stage_key, host_ref) values ($1, $2, $3, $4, $5, $6, $7) on conflict (org_id, host_ref) do nothing returning project_id) select project_id from added union all select project_id from works.projects where org_id = $1 and host_ref = $7";
 }
 
 /// The queries on the people of a project.
@@ -263,7 +289,281 @@ pub mod jobs {
 
     /// Moves a job to a status with its number, actual end and finished mark.
     pub const MOVE: &str = "update works.jobs set status = $3, number = $4, actual_end = $5, finished_at = $6 where org_id = $1 and job_id = $2 returning job_id";
+
+    /// Lists the jobs not cancelled whose planned window meets the days from `$2` to `$3`, by start, with the columns `LIST` reads.
+    pub const BOARD: &str = "select j.job_id, j.project_id, j.number, j.status, j.at_site, j.base_date, j.work_days, j.planned_start, j.planned_end, j.actual_start, j.actual_end, j.remark, j.finished_at from works.jobs j where j.org_id = $1 and j.status <> 'cancelled' and j.planned_start <= $3 and j.planned_end >= $2 and ($4::text is null or exists (select 1 from works.project_members m where m.org_id = j.org_id and m.project_id = j.project_id and m.person_id = $4)) order by j.planned_start, j.job_id";
+
+    /// Adds the job a host knows by a reference, with its status, number and planned window, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.jobs (org_id, job_id, project_id, status, number, planned_start, planned_end, host_ref) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict (org_id, host_ref) do nothing returning job_id) select job_id from added union all select job_id from works.jobs where org_id = $1 and host_ref = $8";
 }
+
+/// The queries on job orders, one row per revision of a job's instruction, and their lines.
+pub mod job_orders {
+    /// Lists a job's revisions, oldest first: id, job, revision, status, issued by, issued at.
+    pub const LIST: &str = "select job_order_id, job_id, revision, status, issued_by, issued_at from works.job_orders where org_id = $1 and job_id = $2 order by revision";
+
+    /// Reads one revision, with the columns `LIST` reads.
+    pub const GET: &str = "select job_order_id, job_id, revision, status, issued_by, issued_at from works.job_orders where org_id = $1 and job_order_id = $2";
+
+    /// Reads the id of a job's draft revision.
+    pub const DRAFT: &str =
+        "select job_order_id from works.job_orders where org_id = $1 and job_id = $2 and status = 'draft'";
+
+    /// Adds a job's next revision as a draft.
+    pub const ADD: &str = "insert into works.job_orders (org_id, job_order_id, job_id, revision, status) select $1, $2, $3, coalesce(max(revision), 0) + 1, 'draft' from works.job_orders where org_id = $1 and job_id = $3";
+
+    /// Lists a revision's lines in order.
+    pub const LINES: &str =
+        "select body from works.job_order_lines where org_id = $1 and job_order_id = $2 order by line";
+
+    /// Removes every line of a revision.
+    pub const CLEAR: &str = "delete from works.job_order_lines where org_id = $1 and job_order_id = $2";
+
+    /// Adds a line to a revision at its place.
+    pub const ADD_LINE: &str =
+        "insert into works.job_order_lines (org_id, job_order_id, line, body) values ($1, $2, $3, $4)";
+
+    /// Marks a job's issued revision superseded.
+    pub const SUPERSEDE: &str =
+        "update works.job_orders set status = 'superseded' where org_id = $1 and job_id = $2 and status = 'issued'";
+
+    /// Issues a draft revision, by whom and when; returns its id when it was a draft.
+    pub const ISSUE: &str = "update works.job_orders set status = 'issued', issued_by = $3, issued_at = $4 where org_id = $1 and job_order_id = $2 and status = 'draft' returning job_order_id";
+}
+
+/// One table as an export writes it: its name, its columns and the query that reads an org's rows in order.
+pub struct Table {
+    pub name: &'static str,
+    pub columns: &'static [&'static str],
+    pub select: &'static str,
+}
+
+macro_rules! select {
+    ($name:literal: $first:literal $(, $column:literal)*) => {
+        concat!(
+            "select ", $first $(, ", ", $column)*,
+            " from works.", $name, " where org_id = $1 order by ", $first $(, ", ", $column)*
+        )
+    };
+}
+
+macro_rules! tables {
+    ($($name:literal: [$($column:literal),+]),+ $(,)?) => {
+        /// Every table, each with every column but `org_id`, in the order the migrations create them.
+        pub const TABLES: &[Table] = &[$(Table {
+            name: $name,
+            columns: &[$($column),+],
+            select: select!($name: $($column),+),
+        }),+];
+
+        /// The queries `TABLES` reads with.
+        pub const SELECTS: &[&str] = &[$(select!($name: $($column),+)),+];
+    };
+}
+
+tables! {
+    "orgs": ["name", "created_at"],
+    "audit": ["audit_id", "person_id", "operation", "at"],
+    "events": ["event_id", "kind", "body", "at", "seq"],
+    "idempotency": ["operation", "idempotency_key", "answer", "at"],
+    "attachments": ["attachment_id", "tag", "name", "size", "at"],
+    "series": ["series_key", "period", "last"],
+    "members": ["email", "person_id", "role"],
+    "approval_kinds": ["kind_key", "signature"],
+    "approvals": [
+        "approval_id", "kind_key", "subject", "state", "asked_by", "asked_at", "asked_note", "proposed",
+        "proposed_by", "proposed_note", "decided_by", "decided_at", "decided_note", "signature"
+    ],
+    "clients": ["client_id", "name", "host_ref", "deactivated_at"],
+    "sites": ["site_id", "client_id", "name", "address", "map_url", "deactivated_at", "host_ref"],
+    "stages": ["stage_key", "name", "kind", "sort"],
+    "lost_reasons": ["reason_key", "name", "needs_note"],
+    "project_roles": ["role_key", "name"],
+    "projects": [
+        "project_id", "name", "client_id", "site_id", "scope", "tags", "zone", "stage_key", "parent_id",
+        "link_kind", "won_at", "lost_at", "lost_reason", "lost_note", "archived_at", "host_ref"
+    ],
+    "project_members": ["project_id", "person_id", "role_key"],
+    "jobs": [
+        "job_id", "project_id", "number", "status", "at_site", "base_date", "work_days", "planned_start",
+        "planned_end", "actual_start", "actual_end", "remark", "finished_at", "host_ref"
+    ],
+    "job_orders": ["job_order_id", "job_id", "revision", "status", "issued_by", "issued_at"],
+    "job_order_lines": ["job_order_id", "line", "body"],
+    "tasks": [
+        "task_id", "job_id", "code", "name", "color", "start_offset", "days", "planned_hours", "weight", "sort",
+        "remark", "archived_at", "host_ref"
+    ],
+    "teams": ["team_id", "name"],
+    "workers": ["worker_id", "name", "title", "team_id", "company", "person_id", "active"],
+    "equipment": ["equipment_id", "tag", "name", "kind", "place", "holder_job_id", "status"],
+    "equipment_bookings": ["booking_id", "equipment_id", "job_id", "task_id", "starts_on", "ends_on", "status"],
+    "equipment_needs": ["need_id", "job_id", "task_id", "kind", "starts_on", "ends_on", "booking_id"],
+    "task_groups": ["group_id", "job_id", "name", "sort"],
+    "task_group_links": ["group_id", "task_id"],
+    "plan_templates": ["template_id", "name", "plan"],
+    "plan_versions": ["version_id", "job_id", "number", "came_from", "replaced_by", "plan", "at"],
+    "seats": ["seat_id", "job_id", "title", "worker_id", "number"],
+    "seat_days": ["seat_id", "day"],
+}
+
+/// The queries on tasks; a person bound in place of null narrows a read to the tasks of the projects they are a member of.
+pub mod tasks {
+    /// Lists a job's tasks in order: id, job, code, name, colour, start offset, days, planned hours, weight, order, remark, archived.
+    pub const LIST: &str = "select t.task_id, t.job_id, t.code, t.name, t.color, t.start_offset, t.days, t.planned_hours, t.weight, t.sort, t.remark, t.archived_at from works.tasks t where t.org_id = $1 and t.job_id = $2 order by t.sort, t.task_id";
+
+    /// Reads one task, with the columns `LIST` reads.
+    pub const GET: &str = "select t.task_id, t.job_id, t.code, t.name, t.color, t.start_offset, t.days, t.planned_hours, t.weight, t.sort, t.remark, t.archived_at from works.tasks t join works.jobs j on j.org_id = t.org_id and j.job_id = t.job_id where t.org_id = $1 and t.task_id = $2 and ($3::text is null or exists (select 1 from works.project_members m where m.org_id = j.org_id and m.project_id = j.project_id and m.person_id = $3))";
+
+    /// Adds a job's task with its code, name, colour, start offset, days, planned hours, weight, order and remark.
+    pub const ADD: &str = "insert into works.tasks (org_id, task_id, job_id, code, name, color, start_offset, days, planned_hours, weight, sort, remark) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)";
+
+    /// Changes a job's task: code, name, colour, start offset, days, planned hours, weight, order and remark.
+    pub const SAVE: &str = "update works.tasks set code = $4, name = $5, color = $6, start_offset = $7, days = $8, planned_hours = $9, weight = $10, sort = $11, remark = $12 where org_id = $1 and task_id = $2 and job_id = $3 returning task_id";
+
+    /// Archives a task, keeping the first time it was.
+    pub const ARCHIVE: &str = "update works.tasks set archived_at = coalesce(archived_at, $3) where org_id = $1 and task_id = $2 returning task_id";
+
+    /// Restores an archived task.
+    pub const RESTORE: &str =
+        "update works.tasks set archived_at = null where org_id = $1 and task_id = $2 returning task_id";
+
+    /// Lists a project's tasks, job by job in order, with the columns `LIST` reads.
+    pub const BY_PROJECT: &str = "select t.task_id, t.job_id, t.code, t.name, t.color, t.start_offset, t.days, t.planned_hours, t.weight, t.sort, t.remark, t.archived_at from works.tasks t join works.jobs j on j.org_id = t.org_id and j.job_id = t.job_id where t.org_id = $1 and j.project_id = $2 order by j.job_id, t.sort, t.task_id";
+
+    /// Adds the task a host knows by a reference, on a job, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.tasks (org_id, task_id, job_id, code, name, start_offset, days, planned_hours, sort, host_ref) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) on conflict (org_id, host_ref) do nothing returning task_id) select task_id from added union all select task_id from works.tasks where org_id = $1 and host_ref = $10";
+}
+
+/// The queries on a job's plan: its groups over tasks, its numbered versions and the company's templates.
+pub mod plans {
+    /// Lists a job's groups in order: id, job, name, order, and the ids of their tasks, comma-separated.
+    pub const GROUPS: &str = "select g.group_id, g.job_id, g.name, g.sort, coalesce((select string_agg(l.task_id, ',' order by l.task_id) from works.task_group_links l where l.org_id = g.org_id and l.group_id = g.group_id), '') from works.task_groups g where g.org_id = $1 and g.job_id = $2 order by g.sort, g.group_id";
+
+    /// Adds a job's group with its name and order.
+    pub const GROUP_ADD: &str =
+        "insert into works.task_groups (org_id, group_id, job_id, name, sort) values ($1, $2, $3, $4, $5)";
+
+    /// Renames and reorders a job's group.
+    pub const GROUP_SAVE: &str = "update works.task_groups set name = $4, sort = $5 where org_id = $1 and group_id = $2 and job_id = $3 returning group_id";
+
+    /// Takes every task out of a group.
+    pub const UNLINK: &str = "delete from works.task_group_links where org_id = $1 and group_id = $2";
+
+    /// Puts a task in a group.
+    pub const LINK: &str =
+        "insert into works.task_group_links (org_id, group_id, task_id) values ($1, $2, $3) on conflict do nothing";
+
+    /// Lists the company's templates by name: id, name, plan.
+    pub const TEMPLATES: &str =
+        "select template_id, name, plan from works.plan_templates where org_id = $1 order by name, template_id";
+
+    /// Reads one template, with the columns `TEMPLATES` reads.
+    pub const TEMPLATE: &str =
+        "select template_id, name, plan from works.plan_templates where org_id = $1 and template_id = $2";
+
+    /// Adds a template with its name and plan.
+    pub const TEMPLATE_ADD: &str =
+        "insert into works.plan_templates (org_id, template_id, name, plan) values ($1, $2, $3, $4)";
+
+    /// Renames a template and changes its plan.
+    pub const TEMPLATE_SAVE: &str = "update works.plan_templates set name = $3, plan = $4 where org_id = $1 and template_id = $2 returning template_id";
+
+    /// Lists a job's versions by number: id, job, number, what the plan came from, what replaced it, the plan, when.
+    pub const VERSIONS: &str = "select version_id, job_id, number, came_from, replaced_by, plan, at from works.plan_versions where org_id = $1 and job_id = $2 order by number";
+
+    /// Reads one version, with the columns `VERSIONS` reads.
+    pub const VERSION: &str = "select version_id, job_id, number, came_from, replaced_by, plan, at from works.plan_versions where org_id = $1 and version_id = $2";
+
+    /// Keeps the plan a job had before it was replaced, numbered, with what it came from and what replaced it.
+    pub const KEEP: &str = "insert into works.plan_versions (org_id, version_id, job_id, number, came_from, replaced_by, plan, at) values ($1, $2, $3, $4, $5, $6, $7, $8)";
+}
+
+/// The queries on teams.
+pub mod teams {
+    /// Lists the org's teams by name: id and name.
+    pub const LIST: &str = "select team_id, name from works.teams where org_id = $1 order by name, team_id";
+
+    /// Reads one team, with the columns `LIST` reads.
+    pub const GET: &str = "select team_id, name from works.teams where org_id = $1 and team_id = $2";
+
+    /// Adds a team with its name.
+    pub const ADD: &str = "insert into works.teams (org_id, team_id, name) values ($1, $2, $3)";
+
+    /// Renames a team.
+    pub const SAVE: &str = "update works.teams set name = $3 where org_id = $1 and team_id = $2 returning team_id";
+}
+
+/// The queries on workers.
+pub mod workers {
+    /// Lists the org's workers by name: id, name, title, team, company (null for own staff), person and active.
+    pub const LIST: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 order by name, worker_id";
+
+    /// Reads one worker, with the columns `LIST` reads.
+    pub const GET: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 and worker_id = $2";
+
+    /// Reads the worker a person signs in as, with the columns `LIST` reads.
+    pub const ME: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 and person_id = $2";
+
+    /// Adds a worker with their name, title, team, company and person.
+    pub const ADD: &str = "insert into works.workers (org_id, worker_id, name, title, team_id, company, person_id) values ($1, $2, $3, $4, $5, $6, $7)";
+
+    /// Changes a worker's name, title, team, company and person.
+    pub const SAVE: &str = "update works.workers set name = $3, title = $4, team_id = $5, company = $6, person_id = $7 where org_id = $1 and worker_id = $2 returning worker_id";
+
+    /// Sets whether a worker is active.
+    pub const SET_ACTIVE: &str =
+        "update works.workers set active = $3 where org_id = $1 and worker_id = $2 returning worker_id";
+}
+
+/// The queries on equipment, its bookings and its needs; a person bound in place of null narrows a read to the bookings and needs of the projects they are a member of.
+pub mod equipment {
+    /// Lists every bookable thing by tag: id, tag, name, kind, place, holder job, status.
+    pub const LIST: &str = "select equipment_id, tag, name, kind, place, holder_job_id, status from works.equipment where org_id = $1 order by tag, equipment_id";
+
+    /// Reads one thing, with the columns `LIST` reads, locking it until the transaction ends.
+    pub const LOCK: &str = "select equipment_id, tag, name, kind, place, holder_job_id, status from works.equipment where org_id = $1 and equipment_id = $2 for update";
+
+    /// Adds a thing with its tag, name, kind, place, holder job and status.
+    pub const ADD: &str = "insert into works.equipment (org_id, equipment_id, tag, name, kind, place, holder_job_id, status) values ($1, $2, $3, $4, $5, $6, $7, $8)";
+
+    /// Changes a thing's tag, name, kind, place, holder job and status.
+    pub const SAVE: &str = "update works.equipment set tag = $3, name = $4, kind = $5, place = $6, holder_job_id = $7, status = $8 where org_id = $1 and equipment_id = $2 returning equipment_id";
+
+    /// Lists the live bookings of a thing that meet the days from `$3` to `$4`.
+    pub const CLASHES: &str = "select booking_id from works.equipment_bookings where org_id = $1 and equipment_id = $2 and status = 'booked' and starts_on <= $4 and ends_on >= $3";
+
+    /// Books a thing for a job, or a task of it, from one day to another.
+    pub const BOOK: &str = "insert into works.equipment_bookings (org_id, booking_id, equipment_id, job_id, task_id, starts_on, ends_on, status) values ($1, $2, $3, $4, $5, $6, $7, 'booked')";
+
+    /// Reads one booking: id, thing, job, task, first and last day, status.
+    pub const BOOKING: &str = "select booking_id, equipment_id, job_id, task_id, starts_on, ends_on, status from works.equipment_bookings where org_id = $1 and booking_id = $2";
+
+    /// Cancels a live booking; returns its id when it was live.
+    pub const CANCEL: &str = "update works.equipment_bookings set status = 'cancelled' where org_id = $1 and booking_id = $2 and status = 'booked' returning booking_id";
+
+    /// Lists the live bookings that meet the days from `$2` to `$3`, thing by thing by tag, then by first day: id, thing, job, task, first and last day.
+    pub const TIMELINE: &str = "select b.booking_id, b.equipment_id, b.job_id, b.task_id, b.starts_on, b.ends_on from works.equipment_bookings b join works.equipment e on e.org_id = b.org_id and e.equipment_id = b.equipment_id join works.jobs j on j.org_id = b.org_id and j.job_id = b.job_id where b.org_id = $1 and b.status = 'booked' and b.starts_on <= $3 and b.ends_on >= $2 and ($4::text is null or exists (select 1 from works.project_members m where m.org_id = j.org_id and m.project_id = j.project_id and m.person_id = $4)) order by e.tag, b.starts_on, b.booking_id";
+
+    /// Adds a need of a kind of thing for a job, or a task of it, from one day to another.
+    pub const NEED: &str = "insert into works.equipment_needs (org_id, need_id, job_id, task_id, kind, starts_on, ends_on) values ($1, $2, $3, $4, $5, $6, $7)";
+
+    /// Reads one need: id, job, task, kind, first and last day, the booking that fills it.
+    pub const GET_NEED: &str = "select need_id, job_id, task_id, kind, starts_on, ends_on, booking_id from works.equipment_needs where org_id = $1 and need_id = $2";
+
+    /// Lists the needs no booking fills, by first day: id, job, task, kind, first and last day.
+    pub const NEEDS: &str = "select n.need_id, n.job_id, n.task_id, n.kind, n.starts_on, n.ends_on from works.equipment_needs n join works.jobs j on j.org_id = n.org_id and j.job_id = n.job_id where n.org_id = $1 and n.booking_id is null and ($2::text is null or exists (select 1 from works.project_members m where m.org_id = j.org_id and m.project_id = j.project_id and m.person_id = $2)) order by n.starts_on, n.need_id";
+
+    /// Fills a need no booking fills with a booking; returns its id when it was open.
+    pub const FILL: &str = "update works.equipment_needs set booking_id = $3 where org_id = $1 and need_id = $2 and booking_id is null returning need_id";
+
+    /// Opens the need a booking filled again.
+    pub const RELEASE: &str =
+        "update works.equipment_needs set booking_id = null where org_id = $1 and booking_id = $2";
+}
+
+/// The queries on a job's seats and the days each works.
+pub mod seats;
 
 /// Runs every migration's statements in the transaction; each is idempotent.
 pub fn migrate(tx: &mut dyn Tx) -> Result<(), Fail> {

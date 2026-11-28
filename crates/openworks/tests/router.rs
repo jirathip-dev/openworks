@@ -8,7 +8,10 @@ use openworks::{Caller, Files, Host, Openworks, Operation, Refused, Request, Res
 use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
-use openworks_db::{approvals, attachments, clients, idempotency, jobs, members, projects, sites, stages};
+use openworks_db::{
+    approvals, attachments, clients, equipment, idempotency, job_orders, jobs, members, plans, projects, seats, sites,
+    stages, tasks, workers,
+};
 
 type Statement = (&'static str, Vec<Value>);
 
@@ -114,9 +117,56 @@ impl Tx for Store {
 fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
     match sql {
         jobs::GET => Some(vec![job(&params[1])]),
-        jobs::SAVE | jobs::PLAN | jobs::MOVE => Some(vec![vec![params[1].clone()]]),
-        _ => None,
+        jobs::SAVE
+        | jobs::PLAN
+        | jobs::MOVE
+        | job_orders::ISSUE
+        | tasks::SAVE
+        | tasks::ARCHIVE
+        | tasks::RESTORE
+        | plans::GROUP_SAVE
+        | plans::TEMPLATE
+        | workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
+        plans::VERSION => Some(vec![vec![
+            params[1].clone(),
+            Value::Text("jo".to_owned()),
+            Value::Int(1),
+        ]]),
+        tasks::GET => {
+            let mut row = vec![params[1].clone(), Value::Text("jo".to_owned())];
+            row.resize(12, Value::Null);
+            Some(vec![row])
+        }
+        workers::GET | workers::ME => {
+            let mut row = vec![Value::Text("w1".to_owned()), Value::Text("Ada".to_owned())];
+            row.resize(7, Value::Null);
+            Some(vec![row])
+        }
+        seats::GET => Some(vec![vec![params[1].clone(), Value::Text("jo".to_owned())]]),
+        job_orders::GET => Some(vec![vec![
+            params[1].clone(),
+            Value::Text("jo".to_owned()),
+            Value::Int(1),
+            Value::Text("draft".to_owned()),
+            Value::Null,
+            Value::Null,
+        ]]),
+        _ => equipment_rows(sql, params),
     }
+}
+
+fn equipment_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
+    let row = |texts: [&str; 7]| texts.map(|field| (!field.is_empty()).then(|| Value::Text(field.to_owned())));
+    let row = match sql {
+        equipment::FILL | equipment::CANCEL => return Some(vec![vec![params[1].clone()]]),
+        equipment::LOCK => row(["e1", "V-1", "Van", "Van", "Yard", "", "in_service"]),
+        equipment::GET_NEED => row(["n1", "jo", "", "Van", "2026-01-05", "2026-01-09", ""]),
+        equipment::BOOKING => row(["b1", "e1", "jo", "", "", "", "booked"]),
+        _ => return None,
+    };
+    Some(vec![
+        row.into_iter().map(|field| field.unwrap_or(Value::Null)).collect(),
+    ])
 }
 
 fn job(id: &Value) -> Row {
@@ -456,10 +506,14 @@ fn body(operation: Operation) -> &'static str {
         Operation::ApprovalPending
         | Operation::ApprovalRecent
         | Operation::ProjectList
+        | Operation::ProjectChanges
+        | Operation::ProjectImport
         | Operation::StageList
         | Operation::LostReasonList
-        | Operation::ProjectRoleList => "",
-        Operation::ClientSave => "\nAcme\n",
+        | Operation::ProjectRoleList
+        | Operation::ExportCreate
+        | Operation::PlanTemplates => "",
+        Operation::ClientSave | Operation::PlanTemplatesSave => "\nAcme\n",
         Operation::ClientSync => "ref-1\nAcme",
         Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
         Operation::ClientList
@@ -473,18 +527,65 @@ fn body(operation: Operation) -> &'static str {
         Operation::StageSave => "lead\nLead\nopen\n1",
         Operation::LostReasonSave => "late\nToo late\nyes",
         Operation::ProjectRoleSave => "lead\nLead",
+        _ => job_body(operation),
+    }
+}
+
+fn job_body(operation: Operation) -> &'static str {
+    match operation {
         Operation::ProjectGet
+        | Operation::ProjectPage
+        | Operation::TaskByProject
         | Operation::ProjectLink
         | Operation::ProjectMembers
         | Operation::ProjectMembersSave
         | Operation::ProjectArchive
         | Operation::JobList => "p1",
-        Operation::JobGet | Operation::JobCancel => "jo",
+        Operation::JobGet
+        | Operation::JobCancel
+        | Operation::JobOrderList
+        | Operation::TaskList
+        | Operation::PlanGroups
+        | Operation::PlanGroupsSave
+        | Operation::PlanVersions
+        | Operation::PlanRestoreVersion
+        | Operation::PlanReplaceFromTemplate => "jo",
         Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
         Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
+        Operation::JobBoard | Operation::EquipmentTimeline => "2026-01-05\n2026-01-09",
         Operation::JobOpen => "jp",
         Operation::JobFinish => "jo\n2026-01-09",
         Operation::JobReopen => "jf",
+        Operation::JobOrderGet | Operation::JobOrderPrint | Operation::JobOrderIssue => "r1",
+        Operation::JobOrderSave => "jo\nSet out the first floor",
+        Operation::TaskSave => "jo\nt1\tDIG\tDig\t#aa5500\t0\t2\t1600\t2500\t1\t\n\tPOUR\tPour\t\t2\t1\t\t\t\t",
+        Operation::TaskArchive | Operation::TaskRestore => "t1",
+        _ => crew(operation),
+    }
+}
+
+fn crew(operation: Operation) -> &'static str {
+    match operation {
+        Operation::WorkerGet => "w1",
+        Operation::WorkerSetActive => "w1\nno",
+        Operation::WorkerSave => "\nAda\nForeman",
+        Operation::TeamSave => "\nCrew A",
+        Operation::SeatList => "jo",
+        Operation::SeatSave => "\njo\nLead\nw1\n1",
+        Operation::SeatSetDays => "s1\n2026-01-05\n2026-01-06",
+        Operation::SeatBooked => "2026-01-05\n2026-01-09",
+        _ => equipment_body(operation),
+    }
+}
+
+fn equipment_body(operation: Operation) -> &'static str {
+    match operation {
+        Operation::EquipmentSave => "\nV-1\nVan\nVan\nYard\njo\n",
+        Operation::EquipmentBook => "e1\njo\n\n2026-01-05\n2026-01-09",
+        Operation::EquipmentFill => "n1\ne1",
+        Operation::EquipmentCancel => "b1",
+        Operation::EquipmentNeed => "jo\n\nVan\n2026-01-05\n2026-01-09",
+        _ => "",
     }
 }
 
@@ -521,6 +622,7 @@ fn the_role_table_holds_for_every_declared_operation() {
             let answered = send(&openworks, &path, &email(role), Some("k"), body(*operation));
 
             let expected = match role.grants(declaration.needs()) {
+                Some(Scope::Own) if *operation == Operation::ProjectChanges => 403,
                 Some(_) => 200,
                 None => 403,
             };
@@ -774,7 +876,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 20);
+    assert_eq!(once.len(), 43);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }

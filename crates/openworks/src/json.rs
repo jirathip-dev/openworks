@@ -29,14 +29,26 @@ pub(crate) fn page(records: &[Record], extended: &[Extended]) -> String {
                 );
                 (extension.key, value)
             });
-            let fields = [("id", text(&record.id.0))]
-                .into_iter()
-                .chain(record.fields.iter().map(|(name, field)| (*name, value(field))))
-                .chain([("ext", object(ext))]);
-            object(fields)
+            rendered(record, ext)
         })
         .collect();
     format!("[{}]", items.join(","))
+}
+
+pub(crate) fn item(record: &Record) -> String {
+    rendered(record, std::iter::empty())
+}
+
+pub(crate) fn sections<const N: usize>(sections: [(&'static str, String); N]) -> String {
+    object(sections.into_iter())
+}
+
+fn rendered<'a>(record: &'a Record, ext: impl Iterator<Item = (&'a str, String)>) -> String {
+    let fields = [("id", text(&record.id.0))]
+        .into_iter()
+        .chain(record.fields.iter().map(|(name, field)| (*name, value(field))))
+        .chain([("ext", object(ext))]);
+    object(fields)
 }
 
 pub(crate) fn openapi(routes: &HashMap<String, Route>, extensions: &[&'static Extension]) -> String {
@@ -108,7 +120,7 @@ fn value(value: &Value) -> String {
     }
 }
 
-fn text(string: &str) -> String {
+pub(crate) fn text(string: &str) -> String {
     let mut quoted = String::with_capacity(string.len() + 2);
     quoted.push('"');
     for c in string.chars() {

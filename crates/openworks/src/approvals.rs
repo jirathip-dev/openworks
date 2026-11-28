@@ -1,4 +1,4 @@
-use openworks_core::{Call, Declaration, Fail, Tx, Value, Via, Who, Word};
+use openworks_core::{Approval, Call, Declaration, Fail, Tx, Value, Via, Who, Word};
 use openworks_db::approvals::{
     DECIDE as DECIDE_SQL, KIND, OPEN, PENDING as PENDING_SQL, PROPOSE, RECENT as RECENT_SQL, REQUEST as REQUEST_SQL,
     RESET as RESET_SQL, SAVE_KIND as SAVE_KIND_SQL,
@@ -32,6 +32,12 @@ pub const PENDING: Declaration = openworks_core::read!("pending", needs: Read, q
 /// Lists the latest decisions, a `id kind subject state decided_by note signature` line each, tab-separated.
 pub const RECENT: Declaration = openworks_core::read!("recent", needs: Read, queries: [RECENT_SQL], recent);
 
+pub(crate) const JOB_ORDER: Approval = Approval {
+    key: "job_order",
+    needs: Word::Approve,
+    signature: false,
+};
+
 struct Rule {
     needs: Word,
     signature: bool,
@@ -47,8 +53,8 @@ fn save_kind(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
             ));
         }
     };
-    if call.approvals.iter().any(|kind| kind.key == key) {
-        return Err(Fail::Invalid(format!("a pack holds the kind {key}")));
+    if held(call).any(|kind| kind.key == key) {
+        return Err(Fail::Invalid(format!("a pack or the core holds the kind {key}")));
     }
     tx.run(SAVE_KIND_SQL, &[org(call.who), text(key), text(yes_no(signature))])?;
     Ok(key.to_owned())
@@ -151,7 +157,7 @@ fn recent(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
 }
 
 fn rule(call: &Call, tx: &mut dyn Tx, key: &str) -> Result<Rule, Fail> {
-    if let Some(kind) = call.approvals.iter().find(|kind| kind.key == key) {
+    if let Some(kind) = held(call).find(|kind| kind.key == key) {
         return Ok(Rule {
             needs: kind.needs,
             signature: kind.signature,
@@ -165,6 +171,10 @@ fn rule(call: &Call, tx: &mut dyn Tx, key: &str) -> Result<Rule, Fail> {
         None => Err(Fail::Invalid(format!("no approval kind {key}"))),
         Some(_) => Err(Fail::Store("an approval kind row is its signature".to_owned())),
     }
+}
+
+fn held<'a>(call: &'a Call) -> impl Iterator<Item = &'a Approval> {
+    call.approvals.iter().chain([&JOB_ORDER])
 }
 
 fn split(body: &str) -> Result<(Vec<&str>, &str), Fail> {

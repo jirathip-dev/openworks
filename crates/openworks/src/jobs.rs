@@ -44,9 +44,10 @@ pub const REOPEN: Declaration = openworks_core::write!(
 );
 
 /// Cancels the open job with the body's id.
-pub const CANCEL: Declaration = openworks_core::write!("cancel", needs: Write, queries: [GET_SQL, MOVE], cancel);
+pub const CANCEL: Declaration =
+    openworks_core::write!("cancel", needs: Write, queries: [GET_SQL, MOVE], cancel).by_hand();
 
-const FIELDS: [&str; 12] = [
+pub(crate) const FIELDS: [&str; 12] = [
     "project_id",
     "number",
     "status",
@@ -230,15 +231,15 @@ fn status(row: &Row) -> Result<JobStatus, Fail> {
     JobStatus::named(&plain(row.get(STATUS))).ok_or_else(|| Fail::Store("a job row holds no status".to_owned()))
 }
 
-fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
+pub(crate) fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Row, Fail> {
     first(tx.run(GET_SQL, &[org(who), text(id), reaching(who, word)])?)
 }
 
-fn window(starts_on: Date, ends_on: Date) -> Result<Window, Fail> {
+pub(crate) fn window(starts_on: Date, ends_on: Date) -> Result<Window, Fail> {
     Window::new(starts_on, ends_on).ok_or_else(|| Fail::Invalid(format!("{ends_on} is before {starts_on}")))
 }
 
-fn date(day: &str) -> Result<Date, Fail> {
+pub(crate) fn date(day: &str) -> Result<Date, Fail> {
     Date::parse(day).ok_or_else(|| Fail::Invalid(format!("not a YYYY-MM-DD day: {day}")))
 }
 

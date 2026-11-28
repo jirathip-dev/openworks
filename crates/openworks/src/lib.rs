@@ -2,137 +2,42 @@ use std::collections::HashMap;
 
 use openworks_core::{
     Approval, Call, Change, Declaration, Extension, Fail, Handler, Hook, Id, Kind, Mount, Pack, Print, Reach, Role,
-    Row, Tx, Value, Who,
+    Row, Tx, Value, Who, Word,
 };
 
-pub use openworks_core::{Files, Via};
+pub use openworks_core::{Files, Offer, Via};
+pub use operations::Operation;
 pub use series::{Period, Series};
 
+use operations::{CLIENTS, KEY};
+
 mod approvals;
+mod board;
 mod clients;
 mod due;
+mod equipment;
+mod exports;
 mod files;
 mod idempotency;
+mod import;
+mod job_orders;
 mod jobs;
 mod json;
+mod mcp;
 mod members;
+mod operations;
 mod orgs;
+mod plans;
 mod projects;
+mod seats;
 mod series;
 mod setup;
 mod sites;
+mod tasks;
+mod teams;
+mod workers;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
-
-openworks_core::operations! {
-    OrgList => orgs::LIST,
-    OrgRename => orgs::RENAME,
-    MemberList => members::LIST,
-    MemberSet => members::SET,
-    MemberRemove => members::REMOVE,
-    FileAttach => files::ATTACH,
-    FileList => files::LIST,
-    ApprovalSaveKind => approvals::SAVE_KIND,
-    ApprovalRequest => approvals::REQUEST,
-    ApprovalDecide => approvals::DECIDE,
-    ApprovalReset => approvals::RESET,
-    ApprovalPending => approvals::PENDING,
-    ApprovalRecent => approvals::RECENT,
-    ClientList => clients::LIST,
-    ClientGet => clients::GET,
-    ClientSave => clients::SAVE,
-    ClientDeactivate => clients::DEACTIVATE,
-    ClientSync => clients::SYNC,
-    SiteList => sites::LIST,
-    SiteGet => sites::GET,
-    SiteSave => sites::SAVE,
-    SiteDeactivate => sites::DEACTIVATE,
-    ProjectList => projects::LIST,
-    ProjectGet => projects::GET,
-    ProjectSave => projects::SAVE,
-    ProjectMoveStage => projects::MOVE_STAGE,
-    ProjectLink => projects::LINK,
-    ProjectMembers => projects::MEMBERS,
-    ProjectMembersSave => projects::MEMBERS_SAVE,
-    ProjectArchive => projects::ARCHIVE,
-    StageList => setup::STAGES,
-    StageSave => setup::STAGE_SAVE,
-    LostReasonList => setup::LOST_REASONS,
-    LostReasonSave => setup::LOST_REASON_SAVE,
-    ProjectRoleList => setup::ROLES,
-    ProjectRoleSave => setup::ROLE_SAVE,
-    JobList => jobs::LIST,
-    JobGet => jobs::GET,
-    JobSave => jobs::SAVE,
-    JobReschedule => jobs::RESCHEDULE,
-    JobOpen => jobs::OPEN,
-    JobFinish => jobs::FINISH,
-    JobReopen => jobs::REOPEN,
-    JobCancel => jobs::CANCEL,
-}
-
-const KEY: &str = "orgs";
-
-const CLIENTS: &str = "clients";
-
-const HOMES: [(&str, &str); 7] = [
-    ("/orgs", KEY),
-    ("/files", "files"),
-    ("/approvals", "approvals"),
-    ("/clients", CLIENTS),
-    ("/sites", "sites"),
-    ("/projects", "projects"),
-    ("/jobs", "jobs"),
-];
-
-impl Operation {
-    /// The path prefix and extension key the operation is mounted under.
-    pub const fn home(self) -> (&'static str, &'static str) {
-        match self {
-            Self::OrgList | Self::OrgRename | Self::MemberList | Self::MemberSet | Self::MemberRemove => ("/orgs", KEY),
-            Self::FileAttach | Self::FileList => ("/files", "files"),
-            Self::ApprovalSaveKind
-            | Self::ApprovalRequest
-            | Self::ApprovalDecide
-            | Self::ApprovalReset
-            | Self::ApprovalPending
-            | Self::ApprovalRecent => ("/approvals", "approvals"),
-            Self::ClientList | Self::ClientGet | Self::ClientSave | Self::ClientDeactivate | Self::ClientSync => {
-                ("/clients", CLIENTS)
-            }
-            Self::SiteList | Self::SiteGet | Self::SiteSave | Self::SiteDeactivate => ("/sites", "sites"),
-            Self::JobList
-            | Self::JobGet
-            | Self::JobSave
-            | Self::JobReschedule
-            | Self::JobOpen
-            | Self::JobFinish
-            | Self::JobReopen
-            | Self::JobCancel => ("/jobs", "jobs"),
-            _ => ("/projects", "projects"),
-        }
-    }
-
-    /// The operation's path.
-    pub fn path(self) -> String {
-        format!("{}/{}", self.home().0, self.declaration().name())
-    }
-
-    /// The core's mounts: every operation under its prefix, reached by the caller's org.
-    pub fn mounts() -> Vec<Mount> {
-        HOMES
-            .iter()
-            .map(|&(prefix, key)| {
-                Self::ALL
-                    .iter()
-                    .filter(|operation| operation.home().0 == prefix)
-                    .fold(Mount::new(prefix, key), |mount, operation| {
-                        mount.operation(operation.declaration(), Reach::Org)
-                    })
-            })
-            .collect()
-    }
-}
 
 /// The person a credential signs in, by the host's id and email, the org they act for and who acts for them.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -174,6 +79,15 @@ pub struct Response {
 pub enum Refused {
     DuplicatePath(String),
     Unscoped(Vec<&'static str>),
+}
+
+/// An operation an assistant may call: its tool name, its path, the word it needs and whether it reads or proposes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Tool {
+    pub name: String,
+    pub path: String,
+    pub needs: Word,
+    pub offer: Offer,
 }
 
 #[derive(Clone, Copy)]
@@ -287,6 +201,23 @@ impl<H: Host> Openworks<H> {
         json::openapi(&self.routes, &self.extensions)
     }
 
+    /// Every mounted operation an assistant is offered, by path: a read is a tool, a write a proposal.
+    pub fn tools(&self) -> Vec<Tool> {
+        let mut tools: Vec<Tool> = self
+            .routes
+            .iter()
+            .filter(|(_, route)| route.reach != Reach::Off && route.declaration.offer() != Offer::ByHand)
+            .map(|(path, route)| Tool {
+                name: path.trim_start_matches('/').replace('/', "_"),
+                path: path.clone(),
+                needs: route.declaration.needs(),
+                offer: route.declaration.offer(),
+            })
+            .collect();
+        tools.sort_by(|one, other| one.path.cmp(&other.path));
+        tools
+    }
+
     /// Runs every migration in one transaction.
     pub fn migrate(&self) -> Result<(), Fail> {
         self.host.transact(&mut |tx| openworks_db::migrate(tx))
@@ -339,15 +270,20 @@ impl<H: Host> Openworks<H> {
 
     /// Answers a request: signs the caller in as a member, checks reach and the needed word, runs the operation.
     pub fn handle(&self, request: &Request) -> Response {
+        self.respond(request, None)
+    }
+
+    fn respond(&self, request: &Request, via: Option<Via>) -> Response {
         let Some(route) = self.routes.get(&request.path) else {
             return answer(404, "no such operation");
         };
         if route.reach == Reach::Off {
             return answer(404, "no such operation");
         }
-        let Some(caller) = self.host.who(&request.credential) else {
+        let Some(mut caller) = self.host.who(&request.credential) else {
             return answer(401, "sign in");
         };
+        caller.via = via.unwrap_or(caller.via);
         match self.call(
             *route,
             &|tx| self.sign_in(tx, &caller),
@@ -367,6 +303,11 @@ impl<H: Host> Openworks<H> {
     /// Adds the client the host knows by `host_ref`, or renames it, on the host's word; answers the client's id.
     pub fn sync_client(&self, by: Id, org: Id, host_ref: &str, name: &str) -> Result<String, Fail> {
         self.as_host(by, org, &clients::SYNC, CLIENTS, &format!("{host_ref}\n{name}"))
+    }
+
+    /// Copies the records a host already keeps, by `host_ref`, on the host's word; running it twice writes what once did.
+    pub fn import(&self, by: Id, org: Id, records: &str) -> Result<String, Fail> {
+        self.as_host(by, org, &import::IMPORT, "projects", records)
     }
 
     fn as_host(

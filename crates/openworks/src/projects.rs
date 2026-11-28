@@ -1,4 +1,5 @@
 use openworks_core::{Call, Declaration, Fail, Id, Record, Row, Scope, StageKind, Tx, Value, Who, Word};
+use openworks_db::events::SINCE;
 use openworks_db::project_members::{ADD as ADD_MEMBER, CLEAR, LIST as MEMBERS_SQL};
 use openworks_db::projects::{
     ADD, ARCHIVE as ARCHIVE_SQL, GET as GET_SQL, LINK as LINK_SQL, LIST as LIST_SQL, MOVE, SAVE as SAVE_SQL,
@@ -6,12 +7,22 @@ use openworks_db::projects::{
 use openworks_db::{clients, jobs, lost_reasons, members, project_roles, series, sites, stages};
 
 use crate::clients::{changed, lines, named, optional, org};
+use crate::json;
+use crate::tasks::count;
 
-/// Lists the projects the caller reaches, as records of kind `projects`.
+/// Lists a page of the projects the caller reaches from `stage`, `client_id`, `archived` (yes, no, or empty for both), `limit` (at most 500, 100 when empty) and `offset` lines, each empty filter off, as records of kind `projects`.
 pub const LIST: Declaration = openworks_core::list!("list", needs: Read, record: "projects", queries: [LIST_SQL], list);
 
 /// Reads the project with the body's id, as a page of one record of kind `projects`.
 pub const GET: Declaration = openworks_core::list!("get", needs: Read, record: "projects", queries: [GET_SQL], get);
+
+/// Reads the project with the body's id as one page: an object of its `project` record, its `members` and its `jobs`.
+pub const PAGE: Declaration =
+    openworks_core::read!("page", needs: Read, queries: [GET_SQL, MEMBERS_SQL, jobs::LIST], page);
+
+/// Lists what changed after the sequence number on the body's first line, oldest first, at most `limit` (the second line) events, as records of kind `changes`; a caller who reads only their own projects is refused.
+pub const CHANGES: Declaration =
+    openworks_core::list!("changes", needs: Read, record: "changes", queries: [SINCE], changes);
 
 /// Saves a project from `id`, `name`, `client_id`, `site_id`, `scope`, `tags` and `zone` lines, then `stage` when the empty id adds one with its first job, proposed; answers its id.
 pub const SAVE: Declaration = openworks_core::create!(
@@ -51,7 +62,7 @@ pub const MEMBERS_SAVE: Declaration = openworks_core::write!(
 
 /// Archives the project with the body's id.
 pub const ARCHIVE: Declaration =
-    openworks_core::write!("archive", needs: Write, queries: [GET_SQL, ARCHIVE_SQL], archive);
+    openworks_core::write!("archive", needs: Write, queries: [GET_SQL, ARCHIVE_SQL], archive).by_hand();
 
 const FIELDS: [&str; 14] = [
     "name",
@@ -70,17 +81,77 @@ const FIELDS: [&str; 14] = [
     "archived_at",
 ];
 
+const PAGE_SIZE: i64 = 100;
+const MOST: i64 = 500;
+
 const STAGE: usize = 7;
 const PARENT: usize = 8;
 const WON_AT: usize = 10;
 
-fn list(who: &Who, tx: &mut dyn Tx, _: &str) -> Result<Vec<Record>, Fail> {
-    let rows = tx.run(LIST_SQL, &[org(who), reaching(who, Word::Read)])?;
-    rows.into_iter().map(|row| record(row, &FIELDS)).collect()
+fn list(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
+    let [stage, client, archived, limit, offset] = lines(body)?;
+    let archived = match archived {
+        "" => Value::Null,
+        "no" => Value::Int(0),
+        "yes" => Value::Int(1),
+        _ => return Err(Fail::Invalid("archived is yes or no".to_owned())),
+    };
+    let [limit, offset] = paging(limit, offset)?;
+    let params = [
+        org(who),
+        reaching(who, Word::Read),
+        optional(stage),
+        optional(client),
+        archived,
+        limit,
+        offset,
+    ];
+    records(tx.run(LIST_SQL, &params)?, &FIELDS)
 }
 
 fn get(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
     Ok(vec![record(project(who, tx, body.trim(), Word::Read)?, &FIELDS)?])
+}
+
+fn page(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
+    let who = call.who;
+    let id = call.body.trim();
+    let found = record(project(who, tx, id, Word::Read)?, &FIELDS)?;
+    let members = records(tx.run(MEMBERS_SQL, &[org(who), text(id)])?, &["role"])?;
+    let jobs = records(tx.run(jobs::LIST, &[org(who), text(id)])?, &crate::jobs::FIELDS)?;
+    Ok(json::sections([
+        ("project", json::item(&found)),
+        ("members", json::page(&members, &[])),
+        ("jobs", json::page(&jobs, &[])),
+    ]))
+}
+
+fn changes(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
+    if reaching(who, Word::Read) != Value::Null {
+        return Err(Fail::Needs(Word::Read));
+    }
+    let [since, limit] = lines(body)?;
+    let since = if since.is_empty() { 0 } else { count("since", since)? };
+    let [limit, _] = paging(limit, "")?;
+    records(
+        tx.run(SINCE, &[org(who), Value::Int(since), limit])?,
+        &["seq", "kind", "body", "at"],
+    )
+}
+
+fn paging(limit: &str, offset: &str) -> Result<[Value; 2], Fail> {
+    let limit = match limit {
+        "" => PAGE_SIZE,
+        limit => Some(count("limit", limit)?)
+            .filter(|limit| (1..=MOST).contains(limit))
+            .ok_or_else(|| Fail::Invalid(format!("limit is 1 to {MOST}")))?,
+    };
+    let offset = if offset.is_empty() { 0 } else { count("offset", offset)? };
+    Ok([Value::Int(limit), Value::Int(offset)])
+}
+
+pub(crate) fn records(rows: Vec<Row>, fields: &[&'static str]) -> Result<Vec<Record>, Fail> {
+    rows.into_iter().map(|row| record(row, fields)).collect()
 }
 
 fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {

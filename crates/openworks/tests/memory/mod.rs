@@ -1,10 +1,23 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 
 use openworks::{Caller, Files, Host, Openworks, Request, Response, Via};
 use openworks_core::{Fail, Id, Tx};
 
-use crate::common::NoFiles;
+/// A file store that keeps every file in memory by key.
+#[derive(Default)]
+pub struct Kept(pub Mutex<HashMap<String, Vec<u8>>>);
+
+impl Files for Kept {
+    fn put(&self, key: &str, bytes: &[u8]) -> Result<(), Fail> {
+        self.0.lock().unwrap().insert(key.to_owned(), bytes.to_vec());
+        Ok(())
+    }
+    fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Fail> {
+        Ok(self.0.lock().unwrap().get(key).cloned())
+    }
+}
 
 /// The time a test host's clock starts at.
 pub const T0: i64 = 1_700_000_000_000;
@@ -15,6 +28,7 @@ pub struct TestHost<S> {
     pub committed: Mutex<S>,
     pub next_id: AtomicU32,
     pub clock: AtomicI64,
+    pub files: Kept,
 }
 
 impl<S> TestHost<S> {
@@ -57,7 +71,7 @@ impl<S: Tx + Clone> Host for &TestHost<S> {
     }
 
     fn files(&self) -> &dyn Files {
-        &NoFiles
+        &self.files
     }
 
     fn name(&self, _: &str) -> Option<String> {
