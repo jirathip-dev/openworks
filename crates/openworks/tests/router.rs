@@ -8,7 +8,9 @@ use openworks::{Caller, Files, Host, Openworks, Operation, Refused, Request, Res
 use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
-use openworks_db::{approvals, attachments, clients, idempotency, job_orders, jobs, members, projects, sites, stages};
+use openworks_db::{
+    approvals, attachments, clients, idempotency, job_orders, jobs, members, projects, sites, stages, tasks,
+};
 
 type Statement = (&'static str, Vec<Value>);
 
@@ -114,7 +116,14 @@ impl Tx for Store {
 fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
     match sql {
         jobs::GET => Some(vec![job(&params[1])]),
-        jobs::SAVE | jobs::PLAN | jobs::MOVE | job_orders::ISSUE => Some(vec![vec![params[1].clone()]]),
+        jobs::SAVE | jobs::PLAN | jobs::MOVE | job_orders::ISSUE | tasks::SAVE | tasks::ARCHIVE | tasks::RESTORE => {
+            Some(vec![vec![params[1].clone()]])
+        }
+        tasks::GET => {
+            let mut row = vec![params[1].clone(), Value::Text("jo".to_owned())];
+            row.resize(12, Value::Null);
+            Some(vec![row])
+        }
         job_orders::GET => Some(vec![vec![
             params[1].clone(),
             Value::Text("jo".to_owned()),
@@ -487,7 +496,7 @@ fn body(operation: Operation) -> &'static str {
         | Operation::ProjectMembersSave
         | Operation::ProjectArchive
         | Operation::JobList => "p1",
-        Operation::JobGet | Operation::JobCancel | Operation::JobOrderList => "jo",
+        Operation::JobGet | Operation::JobCancel | Operation::JobOrderList | Operation::TaskList => "jo",
         Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
         Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
         Operation::JobOpen => "jp",
@@ -495,6 +504,8 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobReopen => "jf",
         Operation::JobOrderGet | Operation::JobOrderPrint | Operation::JobOrderIssue => "r1",
         Operation::JobOrderSave => "jo\nSet out the first floor",
+        Operation::TaskSave => "jo\nt1\tDIG\tDig\t#aa5500\t0\t2\t1600\t2500\t1\t\n\tPOUR\tPour\t\t2\t1\t\t\t\t",
+        Operation::TaskArchive | Operation::TaskRestore => "t1",
     }
 }
 
@@ -784,7 +795,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 23);
+    assert_eq!(once.len(), 24);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }
