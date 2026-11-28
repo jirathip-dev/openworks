@@ -1,6 +1,8 @@
 use openworks_core::{Mount, Reach};
 
-use crate::{approvals, clients, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks};
+use crate::{
+    approvals, clients, exports, files, job_orders, jobs, members, orgs, projects, setup, sites, tasks, teams, workers,
+};
 
 openworks_core::operations! {
     OrgList => orgs::LIST,
@@ -62,13 +64,20 @@ openworks_core::operations! {
     TaskArchive => tasks::ARCHIVE,
     TaskRestore => tasks::RESTORE,
     ExportCreate => exports::CREATE,
+    WorkerList => workers::LIST,
+    WorkerGet => workers::GET,
+    WorkerMe => workers::ME,
+    WorkerSave => workers::SAVE,
+    WorkerSetActive => workers::SET_ACTIVE,
+    TeamList => teams::LIST,
+    TeamSave => teams::SAVE,
 }
 
 pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 10] = [
+const HOMES: [(&str, &str); 12] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -79,6 +88,8 @@ const HOMES: [(&str, &str); 10] = [
     ("/job-orders", "job_orders"),
     ("/tasks", "tasks"),
     ("/exports", "exports"),
+    ("/workers", "workers"),
+    ("/teams", "teams"),
 ];
 
 impl Operation {
@@ -113,6 +124,10 @@ impl Operation {
                 ("/tasks", "tasks")
             }
             Self::ExportCreate => ("/exports", "exports"),
+            Self::WorkerList | Self::WorkerGet | Self::WorkerMe | Self::WorkerSave | Self::WorkerSetActive => {
+                ("/workers", "workers")
+            }
+            Self::TeamList | Self::TeamSave => ("/teams", "teams"),
             _ => ("/projects", "projects"),
         }
     }
