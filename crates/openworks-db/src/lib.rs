@@ -301,6 +301,71 @@ pub mod job_orders {
     pub const ISSUE: &str = "update works.job_orders set status = 'issued', issued_by = $3, issued_at = $4 where org_id = $1 and job_order_id = $2 and status = 'draft' returning job_order_id";
 }
 
+/// One table as an export writes it: its name, its columns and the query that reads an org's rows in order.
+pub struct Table {
+    pub name: &'static str,
+    pub columns: &'static [&'static str],
+    pub select: &'static str,
+}
+
+macro_rules! select {
+    ($name:literal: $first:literal $(, $column:literal)*) => {
+        concat!(
+            "select ", $first $(, ", ", $column)*,
+            " from works.", $name, " where org_id = $1 order by ", $first $(, ", ", $column)*
+        )
+    };
+}
+
+macro_rules! tables {
+    ($($name:literal: [$($column:literal),+]),+ $(,)?) => {
+        /// Every table, each with every column but `org_id`, in the order the migrations create them.
+        pub const TABLES: &[Table] = &[$(Table {
+            name: $name,
+            columns: &[$($column),+],
+            select: select!($name: $($column),+),
+        }),+];
+
+        /// The queries `TABLES` reads with.
+        pub const SELECTS: &[&str] = &[$(select!($name: $($column),+)),+];
+    };
+}
+
+tables! {
+    "orgs": ["name", "created_at"],
+    "audit": ["audit_id", "person_id", "operation", "at"],
+    "events": ["event_id", "kind", "body", "at", "seq"],
+    "idempotency": ["operation", "idempotency_key", "answer", "at"],
+    "attachments": ["attachment_id", "tag", "name", "size", "at"],
+    "series": ["series_key", "period", "last"],
+    "members": ["email", "person_id", "role"],
+    "approval_kinds": ["kind_key", "signature"],
+    "approvals": [
+        "approval_id", "kind_key", "subject", "state", "asked_by", "asked_at", "asked_note", "proposed",
+        "proposed_by", "proposed_note", "decided_by", "decided_at", "decided_note", "signature"
+    ],
+    "clients": ["client_id", "name", "host_ref", "deactivated_at"],
+    "sites": ["site_id", "client_id", "name", "address", "map_url", "deactivated_at"],
+    "stages": ["stage_key", "name", "kind", "sort"],
+    "lost_reasons": ["reason_key", "name", "needs_note"],
+    "project_roles": ["role_key", "name"],
+    "projects": [
+        "project_id", "name", "client_id", "site_id", "scope", "tags", "zone", "stage_key", "parent_id",
+        "link_kind", "won_at", "lost_at", "lost_reason", "lost_note", "archived_at"
+    ],
+    "project_members": ["project_id", "person_id", "role_key"],
+    "jobs": [
+        "job_id", "project_id", "number", "status", "at_site", "base_date", "work_days", "planned_start",
+        "planned_end", "actual_start", "actual_end", "remark", "finished_at"
+    ],
+    "job_orders": ["job_order_id", "job_id", "revision", "status", "issued_by", "issued_at"],
+    "job_order_lines": ["job_order_id", "line", "body"],
+    "tasks": [
+        "task_id", "job_id", "code", "name", "color", "start_offset", "days", "planned_hours", "weight", "sort",
+        "remark", "archived_at"
+    ],
+}
+
 /// The queries on tasks; a person bound in place of null narrows a read to the tasks of the projects they are a member of.
 pub mod tasks {
     /// Lists a job's tasks in order: id, job, code, name, colour, start offset, days, planned hours, weight, order, remark, archived.

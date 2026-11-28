@@ -1,4 +1,3 @@
-mod common;
 mod memory;
 
 use std::collections::HashMap;
