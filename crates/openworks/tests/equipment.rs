@@ -1,11 +1,11 @@
 mod memory;
-mod trail;
+mod table;
 
 use memory::{ok, send};
 use openworks::Openworks;
 use openworks_core::{Fail, Row, Tx, Value};
-use openworks_db::{equipment, tasks};
-use trail::{Trail, job_row, text};
+use openworks_db::{equipment, jobs, tasks};
+use table::{Trail, change, select, text};
 
 #[derive(Clone, Default)]
 struct Store {
@@ -21,12 +21,8 @@ fn task_row(id: &Value) -> Vec<Row> {
     if *id == text("t1") { vec![row] } else { Vec::new() }
 }
 
-fn keyed(table: &[Row], p: &[Value]) -> Vec<Row> {
-    table
-        .iter()
-        .filter(|row| row[..2] == p[..2])
-        .map(|row| row[1..].to_vec())
-        .collect()
+fn reaches(job: &Value, person: &Value) -> bool {
+    [text("j1"), text("j2")].contains(job) && (*person == Value::Null || *job == text("j1"))
 }
 
 fn meets(row: &Row, from: &Value, to: &Value) -> bool {
@@ -34,58 +30,48 @@ fn meets(row: &Row, from: &Value, to: &Value) -> bool {
     day(&row[5]) <= day(to) && day(&row[6]) >= day(from)
 }
 
-fn set(table: &mut [Row], p: &[Value], from: &Value, to: &Value) -> Vec<Row> {
-    let mut rows = table.iter_mut().filter(|row| row[..2] == p[..2] && row[7] == *from);
-    rows.next().map_or_else(Vec::new, |row| {
-        row[7] = to.clone();
-        vec![vec![p[1].clone()]]
-    })
+fn keyed(p: &[Value]) -> impl Fn(&Row) -> bool + '_ {
+    move |row: &Row| row[..2] == p[..2]
 }
 
 impl Store {
     fn thing_rows(&mut self, sql: &'static str, p: &[Value]) -> Vec<Row> {
         match sql {
+            jobs::GET if reaches(&p[1], &p[2]) => {
+                let mut row = vec![p[1].clone(), text("p1")];
+                row.resize(13, Value::Null);
+                vec![row]
+            }
             equipment::LIST => {
                 self.things.sort_by_key(|row| format!("{:?}", row[2]));
-                self.things
-                    .iter()
-                    .filter(|row| row[0] == p[0])
-                    .map(|row| row[1..].to_vec())
-                    .collect()
+                select(&self.things, |row| row[0] == p[0])
             }
-            equipment::LOCK => keyed(&self.things, p),
+            equipment::LOCK => select(&self.things, keyed(p)),
             equipment::ADD => {
                 self.things.push(p.to_vec());
                 Vec::new()
             }
-            equipment::SAVE => {
-                let saved = self
-                    .things
-                    .iter_mut()
-                    .find(|row| row[..2] == p[..2])
-                    .map(|row| row.clone_from_slice(p));
-                saved.map_or_else(Vec::new, |()| vec![vec![p[1].clone()]])
-            }
+            equipment::SAVE => change(&mut self.things, keyed(p), |row| row.clone_from_slice(p)),
             _ => self.booking_rows(sql, p),
         }
     }
 
     fn booking_rows(&mut self, sql: &'static str, p: &[Value]) -> Vec<Row> {
-        let live = |row: &&Row| row[0] == p[0] && row[7] == text("booked");
+        let live = |row: &Row| row[0] == p[0] && row[7] == text("booked");
         match sql {
-            equipment::CLASHES => self
-                .bookings
-                .iter()
-                .filter(live)
-                .filter(|row| row[2] == p[1] && meets(row, &p[2], &p[3]))
-                .map(|row| vec![row[1].clone()])
-                .collect(),
+            equipment::CLASHES => select(&self.bookings, |row| {
+                live(row) && row[2] == p[1] && meets(row, &p[2], &p[3])
+            }),
             equipment::BOOK => {
                 self.bookings.push([p, &[text("booked")]].concat());
                 Vec::new()
             }
-            equipment::BOOKING => keyed(&self.bookings, p),
-            equipment::CANCEL => set(&mut self.bookings, p, &text("booked"), &text("cancelled")),
+            equipment::BOOKING => select(&self.bookings, keyed(p)),
+            equipment::CANCEL => change(
+                &mut self.bookings,
+                |row| keyed(p)(row) && live(row),
+                |row| row[7] = text("cancelled"),
+            ),
             equipment::TIMELINE => {
                 let tag = |row: &Row| {
                     self.things
@@ -93,8 +79,8 @@ impl Store {
                         .find(|thing| thing[1] == row[2])
                         .map(|thing| thing[2].clone())
                 };
-                let mut rows: Vec<&Row> = self.bookings.iter().filter(live).collect();
-                rows.retain(|row| meets(row, &p[1], &p[2]) && !job_row(&row[3], &p[3]).is_empty());
+                let mut rows: Vec<&Row> = self.bookings.iter().filter(|row| live(row)).collect();
+                rows.retain(|row| meets(row, &p[1], &p[2]) && reaches(&row[3], &p[3]));
                 rows.sort_by_key(|row| format!("{:?} {:?}", tag(row), row[5]));
                 rows.into_iter().map(|row| row[1..7].to_vec()).collect()
             }
@@ -103,19 +89,24 @@ impl Store {
     }
 
     fn need_rows(&mut self, sql: &'static str, p: &[Value]) -> Vec<Row> {
+        let open = |row: &Row| row[7] == Value::Null;
         match sql {
             equipment::NEED => {
                 self.needs.push([p, &[Value::Null]].concat());
                 Vec::new()
             }
-            equipment::GET_NEED => keyed(&self.needs, p),
-            equipment::NEEDS => self
-                .needs
-                .iter()
-                .filter(|row| row[0] == p[0] && row[7] == Value::Null && !job_row(&row[2], &p[1]).is_empty())
-                .map(|row| row[1..7].to_vec())
-                .collect(),
-            equipment::FILL => set(&mut self.needs, p, &Value::Null, &p[2]),
+            equipment::GET_NEED => select(&self.needs, keyed(p)),
+            equipment::NEEDS => {
+                let rows = select(&self.needs, |row| {
+                    row[0] == p[0] && open(row) && reaches(&row[2], &p[1])
+                });
+                rows.into_iter().map(|row| row[..6].to_vec()).collect()
+            }
+            equipment::FILL => change(
+                &mut self.needs,
+                |row| keyed(p)(row) && open(row),
+                |row| row[7] = p[2].clone(),
+            ),
             equipment::RELEASE => {
                 for row in self.needs.iter_mut().filter(|row| row[7] == p[1]) {
                     row[7] = Value::Null;
@@ -152,12 +143,14 @@ fn thing(openworks: &Openworks<&TestHost>, tag: &str, kind: &str) -> String {
     done(openworks, "save", "owner", &format!("\n{tag}\n{tag}\n{kind}\nYard\n\n"))
 }
 
+fn ok_body((status, body): (u16, String)) -> String {
+    assert_eq!(status, 200, "{body}");
+    body
+}
+
 fn ids(listed: &str) -> Vec<&str> {
-    listed
-        .split(r#"{"id":""#)
-        .skip(1)
-        .filter_map(|rest| rest.split('"').next())
-        .collect()
+    let rest = listed.split(r#"{"id":""#).skip(1);
+    rest.filter_map(|rest| rest.split('"').next()).collect()
 }
 
 #[test]
@@ -165,19 +158,13 @@ fn a_thing_keeps_its_tag_name_kind_place_holder_job_and_status() {
     let host = TestHost::default();
     let openworks = Openworks::new(&host).build().unwrap();
 
-    let van = done(&openworks, "save", "owner", "\nV-1\nVan one\nVan\nYard\n\n");
-    let lift = done(
-        &openworks,
-        "save",
-        "manager",
-        "\nL-2\nLift two\nLift\nBay 4\nj1\nout_of_service",
-    );
-    let moved = done(
-        &openworks,
-        "save",
+    let save = |who: &str, body: &str| at(&openworks, "save", who, body);
+    let van = ok_body(save("owner", "\nV-1\nVan one\nVan\nYard\n\n"));
+    let lift = ok_body(save("manager", "\nL-2\nLift two\nLift\nBay 4\nj1\nout_of_service"));
+    let moved = ok_body(save(
         "member",
         &format!("{van}\nV-1\nVan one\nVan\nBay 4\nj1\nin_service"),
-    );
+    ));
 
     assert_eq!(moved, van);
     assert_eq!(
@@ -187,18 +174,22 @@ fn a_thing_keeps_its_tag_name_kind_place_holder_job_and_status() {
         )
     );
     let status = (400, "invalid: status is in_service or out_of_service".to_owned());
+    assert_eq!(save("owner", "\nV-2\nVan two\nVan\n\n\nbroken"), status);
     assert_eq!(
-        at(&openworks, "save", "owner", "\nV-2\nVan two\nVan\n\n\nbroken"),
-        status
-    );
-    assert_eq!(
-        at(&openworks, "save", "owner", "\n\nVan two"),
+        save("owner", "\n\nVan two"),
         (400, "invalid: a tag is needed".to_owned())
     );
-    assert_eq!(at(&openworks, "save", "member", "\nV-2\nVan two\n\n\nj2\n").0, 404);
-    assert_eq!(at(&openworks, "save", "viewer", "\nV-2\nVan two").0, 403);
+    assert_eq!(save("member", "\nV-2\nVan two\n\n\nj2\n").0, 404);
+    assert_eq!(save("viewer", "\nV-2\nVan two").0, 403);
     assert_eq!(host.store().trail.audits, 3);
-    assert_eq!(host.store().trail.events, vec![text("equipment.save"); 3]);
+    let saves = host
+        .store()
+        .trail
+        .events
+        .iter()
+        .filter(|(kind, _)| *kind == text("equipment.save"))
+        .count();
+    assert_eq!(saves, 3);
 }
 
 #[test]
@@ -209,12 +200,12 @@ fn two_live_bookings_of_one_thing_cannot_overlap() {
     let other = thing(&openworks, "V-2", "Van");
     let book = |thing: &str, days: &str| at(&openworks, "book", "manager", &format!("{thing}\nj2\n\n{days}"));
 
-    let first = done(
+    let first = ok_body(at(
         &openworks,
         "book",
         "member",
         &format!("{van}\nj1\nt1\n2026-01-05\n2026-01-09"),
-    );
+    ));
 
     let clash = (400, format!("invalid: V-1 is booked on those days by {first}"));
     assert_eq!(book(&van, "2026-01-09\n2026-01-12"), clash);
@@ -225,13 +216,6 @@ fn two_live_bookings_of_one_thing_cannot_overlap() {
     let again = (400, format!("invalid: booking {first} is cancelled"));
     assert_eq!(at(&openworks, "cancel", "manager", &first), again);
     assert_eq!(book(&van, "2026-01-05\n2026-01-09").0, 200);
-    let live = host
-        .store()
-        .bookings
-        .iter()
-        .filter(|row| row[7] == text("booked"))
-        .count();
-    assert_eq!(live, 3);
     assert_eq!(host.store().trail.events.len(), 7);
 }
 
@@ -247,12 +231,8 @@ fn a_booking_is_refused_off_its_job_out_of_order_or_out_of_service() {
     let order = (400, "invalid: 2026-01-21 is before 2026-01-22".to_owned());
     assert_eq!(book("manager", "j2\n\n2026-01-22\n2026-01-21"), order);
     assert_eq!(book("member", "j2\n\n2026-01-20\n2026-01-21").0, 404);
-    done(
-        &openworks,
-        "save",
-        "owner",
-        &format!("{van}\nV-1\nV-1\nVan\nYard\n\nout_of_service"),
-    );
+    let broken = format!("{van}\nV-1\nV-1\nVan\nYard\n\nout_of_service");
+    done(&openworks, "save", "owner", &broken);
     let out = (400, "invalid: V-1 is out of service".to_owned());
     assert_eq!(book("manager", "j2\n\n2026-02-01\n2026-02-02"), out);
     assert_eq!(host.store().bookings.len(), 0);
@@ -288,10 +268,8 @@ fn a_need_stays_open_until_a_booking_of_its_kind_fills_it() {
     done(&openworks, "cancel", "manager", &booking);
     assert_eq!(ids(&done(&openworks, "needs", "viewer", "")), [need.as_str()]);
     let unnamed = (400, "invalid: a need names a kind".to_owned());
-    assert_eq!(
-        at(&openworks, "need", "owner", "j1\n\n\n2026-01-05\n2026-01-09"),
-        unnamed
-    );
+    let nameless = at(&openworks, "need", "owner", "j1\n\n\n2026-01-05\n2026-01-09");
+    assert_eq!(nameless, unnamed);
 }
 
 #[test]

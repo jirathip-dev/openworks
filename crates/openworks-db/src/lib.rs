@@ -462,6 +462,8 @@ pub mod workers {
     /// Sets whether a worker is active.
     pub const SET_ACTIVE: &str =
         "update works.workers set active = $3 where org_id = $1 and worker_id = $2 returning worker_id";
+}
+
 /// The queries on equipment, its bookings and its needs; a person bound in place of null narrows a read to the bookings and needs of the projects they are a member of.
 pub mod equipment {
     /// Lists every bookable thing by tag: id, tag, name, kind, place, holder job, status.

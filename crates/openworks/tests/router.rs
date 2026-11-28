@@ -117,26 +117,13 @@ impl Tx for Store {
 fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
     match sql {
         jobs::GET => Some(vec![job(&params[1])]),
-        jobs::SAVE
-        | jobs::PLAN
-        | jobs::MOVE
-        | job_orders::ISSUE
-        | tasks::SAVE
-        | tasks::ARCHIVE
-        | tasks::RESTORE
-        | equipment::FILL
-        | equipment::CANCEL => Some(vec![vec![params[1].clone()]]),
+        jobs::SAVE | jobs::PLAN | jobs::MOVE | job_orders::ISSUE | tasks::SAVE | tasks::ARCHIVE | tasks::RESTORE => {
+            Some(vec![vec![params[1].clone()]])
+        }
+        equipment::FILL | equipment::CANCEL => Some(vec![vec![params[1].clone()]]),
         equipment::LOCK => Some(vec![fields(&["e1", "V-1", "Van", "Van", "Yard", "", "in_service"])]),
         equipment::GET_NEED => Some(vec![fields(&["n1", "jo", "", "Van", "2026-01-05", "2026-01-09", ""])]),
-        equipment::BOOKING => Some(vec![fields(&[
-            "b1",
-            "e1",
-            "jo",
-            "",
-            "2026-01-05",
-            "2026-01-09",
-            "booked",
-        ])]),
+        equipment::BOOKING => Some(vec![fields(&["b1", "e1", "jo", "", "", "", "booked"])]),
         tasks::GET => {
             let mut row = vec![params[1].clone(), Value::Text("jo".to_owned())];
             row.resize(12, Value::Null);
@@ -161,13 +148,8 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
 }
 
 fn fields(texts: &[&str]) -> Row {
-    texts
-        .iter()
-        .map(|field| match *field {
-            "" => Value::Null,
-            field => Value::Text(field.to_owned()),
-        })
-        .collect()
+    let value = |field: &&str| (!field.is_empty()).then(|| Value::Text((*field).to_owned()));
+    texts.iter().map(|field| value(field).unwrap_or(Value::Null)).collect()
 }
 
 fn job(id: &Value) -> Row {

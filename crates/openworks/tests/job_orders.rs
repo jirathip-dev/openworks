@@ -1,18 +1,35 @@
 mod memory;
-mod trail;
 
 use memory::{ok, send};
 use openworks::Openworks;
-use openworks_core::{Fail, Row, Tx, Value};
-use openworks_db::{approvals, job_orders};
-use trail::{Trail, text};
+use openworks_core::{Fail, Role, Row, Tx, Value};
+use openworks_db::{AUDIT, EVENT, approvals, job_orders, jobs, members};
 
 #[derive(Clone, Default)]
 struct Store {
     orders: Vec<Row>,
     lines: Vec<Row>,
     asked: Vec<Row>,
-    trail: Trail,
+    events: Vec<Value>,
+    audits: usize,
+}
+
+fn text(value: &str) -> Value {
+    Value::Text(value.to_owned())
+}
+
+fn job_row(id: &Value, person: &Value) -> Vec<Row> {
+    let staffed = *person == Value::Null || *id == text("j1");
+    if !staffed || ![text("j1"), text("j2")].contains(id) {
+        return Vec::new();
+    }
+    let mut row = vec![
+        id.clone(),
+        text("p1"),
+        text(&format!("J-2026-{}", if *id == text("j1") { 1 } else { 2 })),
+    ];
+    row.resize(13, Value::Null);
+    vec![row]
 }
 
 impl Store {
@@ -120,9 +137,23 @@ impl Store {
 
 impl Tx for Store {
     fn run(&mut self, sql: &'static str, p: &[Value]) -> Result<Vec<Row>, Fail> {
-        Ok(match self.trail.run(sql, p) {
-            Some(rows) => rows,
-            None => self.order_rows(sql, p),
+        Ok(match sql {
+            members::FIND => {
+                let Value::Text(person) = &p[1] else {
+                    return Ok(Vec::new());
+                };
+                Role::named(person).map_or_else(Vec::new, |role| vec![vec![text(role.name())]])
+            }
+            AUDIT => {
+                self.audits += 1;
+                Vec::new()
+            }
+            EVENT => {
+                self.events.push(p[2].clone());
+                Vec::new()
+            }
+            jobs::GET => job_row(&p[1], &p[2]),
+            _ => self.order_rows(sql, p),
         })
     }
 }
@@ -169,11 +200,8 @@ fn a_job_order_keeps_its_draft_revision_with_its_lines_and_prints() {
     );
     assert_eq!(answer(&openworks, "/job-orders/save", "viewer", "j1\nGo").0, 403);
     assert_eq!(answer(&openworks, "/job-orders/save", "member", "j2\nGo").0, 404);
-    assert_eq!(host.store().trail.audits, 2);
-    assert_eq!(
-        host.store().trail.events,
-        [text("job_orders.save"), text("job_orders.save")]
-    );
+    assert_eq!(host.store().audits, 2);
+    assert_eq!(host.store().events, [text("job_orders.save"), text("job_orders.save")]);
 }
 
 #[test]
