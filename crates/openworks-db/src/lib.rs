@@ -28,6 +28,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ),
     ("0013_equipment", include_str!("../migrations/0013_equipment.sql")),
     ("0014_plans", include_str!("../migrations/0014_plans.sql")),
+    ("0015_seats", include_str!("../migrations/0015_seats.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -402,6 +403,8 @@ tables! {
     "task_group_links": ["group_id", "task_id"],
     "plan_templates": ["template_id", "name", "plan"],
     "plan_versions": ["version_id", "job_id", "number", "came_from", "replaced_by", "plan", "at"],
+    "seats": ["seat_id", "job_id", "title", "worker_id", "number"],
+    "seat_days": ["seat_id", "day"],
 }
 
 /// The queries on tasks; a person bound in place of null narrows a read to the tasks of the projects they are a member of.
@@ -558,6 +561,9 @@ pub mod equipment {
     pub const RELEASE: &str =
         "update works.equipment_needs set booking_id = null where org_id = $1 and booking_id = $2";
 }
+
+/// The queries on a job's seats and the days each works.
+pub mod seats;
 
 /// Runs every migration's statements in the transaction; each is idempotent.
 pub fn migrate(tx: &mut dyn Tx) -> Result<(), Fail> {

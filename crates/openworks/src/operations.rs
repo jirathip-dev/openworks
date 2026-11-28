@@ -1,8 +1,8 @@
 use openworks_core::{Mount, Reach};
 
 use crate::{
-    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, setup, sites,
-    tasks, teams, workers,
+    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, seats, setup,
+    sites, tasks, teams, workers,
 };
 
 openworks_core::operations! {
@@ -87,13 +87,17 @@ openworks_core::operations! {
     WorkerSetActive => workers::SET_ACTIVE,
     TeamList => teams::LIST,
     TeamSave => teams::SAVE,
+    SeatList => seats::LIST,
+    SeatSave => seats::SAVE,
+    SeatSetDays => seats::SET_DAYS,
+    SeatBooked => seats::BOOKED,
 }
 
 pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 14] = [
+const HOMES: [(&str, &str); 15] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -108,6 +112,7 @@ const HOMES: [(&str, &str); 14] = [
     ("/exports", "exports"),
     ("/workers", "workers"),
     ("/teams", "teams"),
+    ("/seats", "seats"),
 ];
 
 impl Operation {
@@ -161,6 +166,7 @@ impl Operation {
                 ("/workers", "workers")
             }
             Self::TeamList | Self::TeamSave => ("/teams", "teams"),
+            Self::SeatList | Self::SeatSave | Self::SeatSetDays | Self::SeatBooked => ("/seats", "seats"),
             _ => ("/projects", "projects"),
         }
     }

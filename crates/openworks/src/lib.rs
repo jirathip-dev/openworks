@@ -28,6 +28,7 @@ mod operations;
 mod orgs;
 mod plans;
 mod projects;
+mod seats;
 mod series;
 mod setup;
 mod sites;
