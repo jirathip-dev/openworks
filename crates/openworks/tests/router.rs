@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use openworks::{Caller, Files, Host, Openworks, Operation, Refused, Request, Response};
 use openworks_core::{Change, Declaration, Fail, Hook, Id, Kind, Mount, Reach, Role, Row, Scope, Tx, Value, Word};
-use openworks_db::{idempotency, members};
+use openworks_db::{clients, idempotency, members, sites};
 
 type Statement = (&'static str, Vec<Value>);
 
@@ -48,6 +48,20 @@ impl Tx for Store {
                 Value::Text("First \"org\"".to_owned()),
             ]],
             openworks_db::orgs::ALL => vec![vec![Value::Text("o1".to_owned())]],
+            clients::GET => vec![vec![
+                Value::Text("c1".to_owned()),
+                Value::Text("Acme".to_owned()),
+                Value::Null,
+                Value::Null,
+            ]],
+            sites::GET => vec![
+                ["s1", "c1", "Yard", "", ""]
+                    .map(|field| Value::Text(field.to_owned()))
+                    .into_iter()
+                    .chain([Value::Null])
+                    .collect(),
+            ],
+            clients::DEACTIVATE | clients::SYNC | sites::DEACTIVATE => vec![vec![Value::Text("c1".to_owned())]],
             idempotency::FIND => self
                 .keys
                 .iter()
@@ -270,6 +284,15 @@ fn body(operation: Operation) -> &'static str {
         Operation::MemberRemove => "viewer@o.test",
         Operation::OrgList | Operation::OrgRename | Operation::MemberList => "New name",
         Operation::FileAttach | Operation::FileList => ANY_BODY,
+        Operation::ClientSave => "\nAcme\n",
+        Operation::ClientSync => "ref-1\nAcme",
+        Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
+        Operation::ClientList
+        | Operation::ClientGet
+        | Operation::ClientDeactivate
+        | Operation::SiteList
+        | Operation::SiteGet
+        | Operation::SiteDeactivate => "c1",
     }
 }
 
@@ -559,7 +582,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 9);
+    assert_eq!(once.len(), 11);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }

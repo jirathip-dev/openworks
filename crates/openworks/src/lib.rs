@@ -8,12 +8,14 @@ use openworks_core::{
 pub use openworks_core::Files;
 pub use series::{Period, Series};
 
+mod clients;
 mod due;
 mod files;
 mod json;
 mod members;
 mod orgs;
 mod series;
+mod sites;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
 
@@ -25,11 +27,27 @@ openworks_core::operations! {
     MemberRemove => members::REMOVE,
     FileAttach => files::ATTACH,
     FileList => files::LIST,
+    ClientList => clients::LIST,
+    ClientGet => clients::GET,
+    ClientSave => clients::SAVE,
+    ClientDeactivate => clients::DEACTIVATE,
+    ClientSync => clients::SYNC,
+    SiteList => sites::LIST,
+    SiteGet => sites::GET,
+    SiteSave => sites::SAVE,
+    SiteDeactivate => sites::DEACTIVATE,
 }
 
 const KEY: &str = "orgs";
 
-const HOMES: [(&str, &str); 2] = [("/orgs", KEY), ("/files", "files")];
+const CLIENTS: &str = "clients";
+
+const HOMES: [(&str, &str); 4] = [
+    ("/orgs", KEY),
+    ("/files", "files"),
+    ("/clients", CLIENTS),
+    ("/sites", "sites"),
+];
 
 impl Operation {
     /// The path prefix and extension key the operation is mounted under.
@@ -37,6 +55,10 @@ impl Operation {
         match self {
             Self::OrgList | Self::OrgRename | Self::MemberList | Self::MemberSet | Self::MemberRemove => ("/orgs", KEY),
             Self::FileAttach | Self::FileList => ("/files", "files"),
+            Self::ClientList | Self::ClientGet | Self::ClientSave | Self::ClientDeactivate | Self::ClientSync => {
+                ("/clients", CLIENTS)
+            }
+            Self::SiteList | Self::SiteGet | Self::SiteSave | Self::SiteDeactivate => ("/sites", "sites"),
         }
     }
 
@@ -287,17 +309,33 @@ impl<H: Host> Openworks<H> {
 
     /// Adds a member to an org by email, or changes their role, on the host's word; `by` is who made the change.
     pub fn set_member(&self, by: Id, org: Id, email: &str, role: Role) -> Result<String, Fail> {
+        self.as_host(by, org, &members::SET, KEY, &format!("{email} {}", role.name()))
+    }
+
+    /// Adds the client the host knows by `host_ref`, or renames it, on the host's word; answers the client's id.
+    pub fn sync_client(&self, by: Id, org: Id, host_ref: &str, name: &str) -> Result<String, Fail> {
+        self.as_host(by, org, &clients::SYNC, CLIENTS, &format!("{host_ref}\n{name}"))
+    }
+
+    fn as_host(
+        &self,
+        by: Id,
+        org: Id,
+        declaration: &'static Declaration,
+        key: &'static str,
+        body: &str,
+    ) -> Result<String, Fail> {
         let who = Who {
             person: by,
             org,
             role: Role::Owner,
         };
         let route = Route {
-            declaration: &members::SET,
+            declaration,
             reach: Reach::Org,
-            key: KEY,
+            key,
         };
-        self.call(route, &|_| Ok(who.clone()), &format!("{email} {}", role.name()), None)
+        self.call(route, &|_| Ok(who.clone()), body, None)
     }
 
     fn sign_in(&self, tx: &mut dyn Tx, caller: &Caller) -> Result<Who, Fail> {
