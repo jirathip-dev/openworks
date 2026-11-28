@@ -1,0 +1,5 @@
+leg = "surface"
+about = "rustfmt on the folders a build script collects, which cargo fmt does not reach"
+fix = "run the gate's command without --check and commit the result"
+budget_secs = 20
+run = "rustfmt --check --edition 2024 crates/openworks-core/src/*.rs crates/openworks-db/src/queries/*.rs crates/openworks/src/areas/*.rs"

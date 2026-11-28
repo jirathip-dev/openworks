@@ -1,4 +1,10 @@
-frozen = [".github/workflows/ci.yml"]
+frozen = [
+    ".github/workflows/ci.yml",
+    "crates/openworks-core/src/lib.rs",
+    "crates/openworks-db/src/lib.rs",
+    "crates/openworks/src/lib.rs",
+    "crates/openworks/tests/router.rs",
+]
 shared = ["Cargo.toml", ".drover/arch.toml", ".drover/rules.md", "README.md"]
 
 [[collect]]
@@ -12,6 +18,22 @@ glob = "*"
 [[collect]]
 dir = ".gatekeeper/gates"
 glob = "*.toml"
+
+[[collect]]
+dir = "crates/openworks-core/src"
+glob = "*.rs"
+
+[[collect]]
+dir = "crates/openworks-db/src/queries"
+glob = "*.rs"
+
+[[collect]]
+dir = "crates/openworks/src/areas"
+glob = "*.rs"
+
+[[collect]]
+dir = "crates/openworks/tests"
+glob = "*.rs"
 
 [comments]
 policy = "strict"
