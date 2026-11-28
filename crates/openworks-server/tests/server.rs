@@ -7,7 +7,7 @@ use issuer_double::{CLIENT, claims, signed, start};
 use openworks::Host;
 use openworks_core::{Id, Value};
 use openworks_server::http::{Answer, Asked};
-use openworks_server::{Issuer, Server, Store};
+use openworks_server::{Gate, Issuer, Own, Server, Store};
 use serde_json::{Value as Json, json};
 
 const AUDITS: &str = "select count(*) from works.audit where org_id = $1";
@@ -86,6 +86,26 @@ fn mint_assistant(server: &Server, person: &str) -> String {
     assistant
 }
 
+fn every_own_route_holds_its_gate(server: &Server, assistant: &str) {
+    for own in Own::ALL {
+        let (method, path) = own.route();
+        let asked = if path.ends_with('/') {
+            format!("{path}p1/confirm")
+        } else {
+            path.to_owned()
+        };
+        let anonymous = ask(server, method, &asked, "nobody", "").status;
+        match own.gate() {
+            Gate::Anyone => assert_ne!(anonymous, 401, "{own:?}"),
+            Gate::Signed => assert_eq!(anonymous, 401, "{own:?}"),
+            Gate::Person => {
+                let by_assistant = ask(server, method, &asked, assistant, "").status;
+                assert_eq!((anonymous, by_assistant), (401, 403), "{own:?}");
+            }
+        }
+    }
+}
+
 fn propose_and_settle(server: &Server, store: &Store, org: &Id, person: &str, assistant: &str) {
     let before = trail(store, org);
     let proposed = ask(server, "POST", "/clients/save", assistant, "\nProposed client");
@@ -135,6 +155,7 @@ fn a_person_signs_in_and_confirms_what_their_assistant_proposed() {
 
     let person = sign_in(&server, &store, &org, &issuer_url);
     let assistant = mint_assistant(&server, &person);
+    every_own_route_holds_its_gate(&server, &assistant);
     propose_and_settle(&server, &store, &org, &person, &assistant);
 
     assert_eq!(ask(&server, "POST", "/auth/sign-out", &assistant, "").status, 200);
