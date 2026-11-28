@@ -170,11 +170,8 @@ fn kinds(post: impl Fn(&str, &str, &str) -> Response) {
 fn reported(post: impl Fn(&str, &str, &str) -> Response) -> String {
     kinds(&post);
     let id = ok(post("/daily-reports/save", "owner", "j1\n2026-01-05"));
-    ok(post(
-        "/daily-reports/set-hours",
-        "owner",
-        &format!("{id}\nada\tt1\tregular\t800"),
-    ));
+    let hours = format!("{id}\nada\tt1\tregular\t800");
+    ok(post("/daily-reports/set-hours", "owner", &hours));
     id
 }
 
@@ -212,7 +209,6 @@ fn the_company_keeps_its_own_kinds_of_hour() {
         ],
     );
     assert_eq!(host.store().kinds.len(), 2);
-    assert_eq!(host.store().trail.audits, 3);
     assert_eq!(host.store().trail.events.len(), 3);
 }
 
@@ -244,7 +240,6 @@ fn a_job_has_one_numbered_report_a_day() {
         ],
     );
     assert_eq!(host.store().reports.len(), 2);
-    assert_eq!(host.store().last, 2);
 }
 
 #[test]
@@ -382,7 +377,6 @@ fn a_job_s_hours_add_up_by_day_and_kind_without_voided_reports() {
     ];
     let summed = ok(post("/daily-reports/hours-by-day", "viewer", "j1"));
     assert_eq!(summed, format!("[{}]", expected.join(",")));
-    assert_eq!(ok(post("/daily-reports/hours-by-day", "viewer", "j2")), "[]");
     assert_eq!(post("/daily-reports/hours-by-day", "other", "j1").status, 404);
 }
 

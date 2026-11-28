@@ -5,7 +5,7 @@ use openworks_db::jobs::{GET as GET_SQL, LIST as LIST_SQL, MOVE, PLAN, SAVE as S
 use openworks_db::{projects, series, stages};
 
 use crate::clients::{changed, lines, org};
-use crate::projects::{first, plain, project, reaching, record, reopened, text};
+use crate::projects::{first, plain, project, reaching, record, records, reopened, text};
 use crate::{Period, Series};
 
 const NUMBERS: Series = Series {
