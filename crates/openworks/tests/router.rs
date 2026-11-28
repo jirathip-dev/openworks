@@ -10,6 +10,7 @@ use openworks_core::{
 };
 use openworks_db::{
     approvals, attachments, clients, idempotency, job_orders, jobs, members, plans, projects, sites, stages, tasks,
+    workers,
 };
 
 type Statement = (&'static str, Vec<Value>);
@@ -135,6 +136,12 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
             row.resize(12, Value::Null);
             Some(vec![row])
         }
+        workers::GET | workers::ME => {
+            let mut row = vec![Value::Text("w1".to_owned()), Value::Text("Ada".to_owned())];
+            row.resize(7, Value::Null);
+            Some(vec![row])
+        }
+        workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
         job_orders::GET => Some(vec![vec![
             params[1].clone(),
             Value::Text("jo".to_owned()),
@@ -490,7 +497,14 @@ fn body(operation: Operation) -> &'static str {
         | Operation::LostReasonList
         | Operation::ProjectRoleList
         | Operation::ExportCreate
+        | Operation::WorkerList
+        | Operation::WorkerMe
+        | Operation::TeamList
         | Operation::PlanTemplates => "",
+        Operation::WorkerGet => "w1",
+        Operation::WorkerSave => "\nAda\nForeman",
+        Operation::WorkerSetActive => "w1\nno",
+        Operation::TeamSave => "\nCrew A",
         Operation::ClientSave | Operation::PlanTemplatesSave => "\nAcme\n",
         Operation::ClientSync => "ref-1\nAcme",
         Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
@@ -829,7 +843,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 36);
+    assert_eq!(once.len(), 38);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }

@@ -22,7 +22,11 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0009_job_orders", include_str!("../migrations/0009_job_orders.sql")),
     ("0010_tasks", include_str!("../migrations/0010_tasks.sql")),
     ("0011_host_refs", include_str!("../migrations/0011_host_refs.sql")),
-    ("0012_plans", include_str!("../migrations/0012_plans.sql")),
+    (
+        "0012_workers_and_teams",
+        include_str!("../migrations/0012_workers_and_teams.sql"),
+    ),
+    ("0013_plans", include_str!("../migrations/0013_plans.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -388,6 +392,8 @@ tables! {
         "task_id", "job_id", "code", "name", "color", "start_offset", "days", "planned_hours", "weight", "sort",
         "remark", "archived_at", "host_ref"
     ],
+    "teams": ["team_id", "name"],
+    "workers": ["worker_id", "name", "title", "team_id", "company", "person_id", "active"],
     "task_groups": ["group_id", "job_id", "name", "sort"],
     "task_group_links": ["group_id", "task_id"],
     "plan_templates": ["template_id", "name", "plan"],
@@ -464,6 +470,43 @@ pub mod plans {
 
     /// Keeps the plan a job had before it was replaced, numbered, with what it came from and what replaced it.
     pub const KEEP: &str = "insert into works.plan_versions (org_id, version_id, job_id, number, came_from, replaced_by, plan, at) values ($1, $2, $3, $4, $5, $6, $7, $8)";
+}
+
+/// The queries on teams.
+pub mod teams {
+    /// Lists the org's teams by name: id and name.
+    pub const LIST: &str = "select team_id, name from works.teams where org_id = $1 order by name, team_id";
+
+    /// Reads one team, with the columns `LIST` reads.
+    pub const GET: &str = "select team_id, name from works.teams where org_id = $1 and team_id = $2";
+
+    /// Adds a team with its name.
+    pub const ADD: &str = "insert into works.teams (org_id, team_id, name) values ($1, $2, $3)";
+
+    /// Renames a team.
+    pub const SAVE: &str = "update works.teams set name = $3 where org_id = $1 and team_id = $2 returning team_id";
+}
+
+/// The queries on workers.
+pub mod workers {
+    /// Lists the org's workers by name: id, name, title, team, company (null for own staff), person and active.
+    pub const LIST: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 order by name, worker_id";
+
+    /// Reads one worker, with the columns `LIST` reads.
+    pub const GET: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 and worker_id = $2";
+
+    /// Reads the worker a person signs in as, with the columns `LIST` reads.
+    pub const ME: &str = "select worker_id, name, title, team_id, company, person_id, active from works.workers where org_id = $1 and person_id = $2";
+
+    /// Adds a worker with their name, title, team, company and person.
+    pub const ADD: &str = "insert into works.workers (org_id, worker_id, name, title, team_id, company, person_id) values ($1, $2, $3, $4, $5, $6, $7)";
+
+    /// Changes a worker's name, title, team, company and person.
+    pub const SAVE: &str = "update works.workers set name = $3, title = $4, team_id = $5, company = $6, person_id = $7 where org_id = $1 and worker_id = $2 returning worker_id";
+
+    /// Sets whether a worker is active.
+    pub const SET_ACTIVE: &str =
+        "update works.workers set active = $3 where org_id = $1 and worker_id = $2 returning worker_id";
 }
 
 /// Runs every migration's statements in the transaction; each is idempotent.
