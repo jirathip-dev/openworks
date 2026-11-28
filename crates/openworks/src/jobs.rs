@@ -1,11 +1,11 @@
 use openworks_core::{
     Call, Date, Declaration, Fail, JobStatus, JobStep, Record, Row, StageKind, Tx, Value, Who, Window, Word, WorkDays,
 };
-use openworks_db::jobs::{GET as GET_SQL, LIST as LIST_SQL, MOVE, PLAN, SAVE as SAVE_SQL};
+use openworks_db::jobs::{BOARD as BOARD_SQL, GET as GET_SQL, LIST as LIST_SQL, MOVE, PLAN, SAVE as SAVE_SQL};
 use openworks_db::{projects, series, stages};
 
 use crate::clients::{changed, lines, org};
-use crate::projects::{first, plain, project, reaching, record, reopened, text};
+use crate::projects::{first, plain, project, reaching, record, records, reopened, text};
 use crate::{Period, Series};
 
 const NUMBERS: Series = Series {
@@ -17,6 +17,9 @@ const NUMBERS: Series = Series {
 /// Lists the jobs of the project with the body's id, as records of kind `jobs`.
 pub const LIST: Declaration =
     openworks_core::list!("list", needs: Read, record: "jobs", queries: [projects::GET, LIST_SQL], list);
+
+/// Lists the planner's rows: the jobs not cancelled whose planned window meets the days from the body's `from` line to its `to` line, by start, as records of kind `jobs`.
+pub const BOARD: Declaration = openworks_core::list!("board", needs: Read, record: "jobs", queries: [BOARD_SQL], board);
 
 /// Reads the job with the body's id, as a page of one record of kind `jobs`.
 pub const GET: Declaration = openworks_core::list!("get", needs: Read, record: "jobs", queries: [GET_SQL], get);
@@ -46,7 +49,7 @@ pub const REOPEN: Declaration = openworks_core::write!(
 /// Cancels the open job with the body's id.
 pub const CANCEL: Declaration = openworks_core::write!("cancel", needs: Write, queries: [GET_SQL, MOVE], cancel);
 
-const FIELDS: [&str; 12] = [
+pub(crate) const FIELDS: [&str; 12] = [
     "project_id",
     "number",
     "status",
@@ -73,6 +76,18 @@ fn list(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
     project(who, tx, id, Word::Read)?;
     let rows = tx.run(LIST_SQL, &[org(who), text(id)])?;
     rows.into_iter().map(|row| record(row, &FIELDS)).collect()
+}
+
+fn board(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
+    let [from, to] = lines(body)?;
+    let days = window(date(from)?, date(to)?)?;
+    let params = [
+        org(who),
+        text(&days.starts_on().to_string()),
+        text(&days.ends_on().to_string()),
+        reaching(who, Word::Read),
+    ];
+    records(tx.run(BOARD_SQL, &params)?, &FIELDS)
 }
 
 fn get(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
@@ -234,11 +249,11 @@ pub(crate) fn job(who: &Who, tx: &mut dyn Tx, id: &str, word: Word) -> Result<Ro
     first(tx.run(GET_SQL, &[org(who), text(id), reaching(who, word)])?)
 }
 
-fn window(starts_on: Date, ends_on: Date) -> Result<Window, Fail> {
+pub(crate) fn window(starts_on: Date, ends_on: Date) -> Result<Window, Fail> {
     Window::new(starts_on, ends_on).ok_or_else(|| Fail::Invalid(format!("{ends_on} is before {starts_on}")))
 }
 
-fn date(day: &str) -> Result<Date, Fail> {
+pub(crate) fn date(day: &str) -> Result<Date, Fail> {
     Date::parse(day).ok_or_else(|| Fail::Invalid(format!("not a YYYY-MM-DD day: {day}")))
 }
 

@@ -1,15 +1,21 @@
 use openworks_core::{Call, Declaration, Fail, Hours, Record, Row, Tx, Value, Who, Word};
 use openworks_db::jobs::GET as JOB;
+use openworks_db::projects::GET as PROJECT;
 use openworks_db::tasks::{
-    ADD, ARCHIVE as ARCHIVE_SQL, GET as GET_SQL, LIST as LIST_SQL, RESTORE as RESTORE_SQL, SAVE as SAVE_SQL,
+    ADD, ARCHIVE as ARCHIVE_SQL, BY_PROJECT as BY_PROJECT_SQL, GET as GET_SQL, LIST as LIST_SQL,
+    RESTORE as RESTORE_SQL, SAVE as SAVE_SQL,
 };
 
 use crate::clients::{changed, named, optional, org};
-use crate::projects::{first, plain, reaching, record, text};
+use crate::projects::{first, plain, project, reaching, record, records, text};
 
 /// Lists the tasks of the job with the body's id in order, archived ones too, as records of kind `tasks`.
 pub const LIST: Declaration =
     openworks_core::list!("list", needs: Read, record: "tasks", queries: [JOB, LIST_SQL], list);
+
+/// Lists the tasks of the project with the body's id, job by job in order, archived ones too, as records of kind `tasks`.
+pub const BY_PROJECT: Declaration =
+    openworks_core::list!("by-project", needs: Read, record: "tasks", queries: [PROJECT, BY_PROJECT_SQL], by_project);
 
 /// Saves a job's tasks in order from a `job_id` line, then one line per task of tab-separated `id` (empty adds one), `code`, `name`, `color` (#rrggbb), `start_offset` and `days` (whole days), `planned_hours` (hundredths of an hour), `weight` (ten-thousandths), `order` (empty puts it last) and `remark`; answers their ids, a line each.
 pub const SAVE: Declaration =
@@ -45,6 +51,12 @@ fn list(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
     job(who, tx, id, Word::Read)?;
     let rows = tx.run(LIST_SQL, &[org(who), text(id)])?;
     rows.into_iter().map(|row| record(row, &FIELDS)).collect()
+}
+
+fn by_project(who: &Who, tx: &mut dyn Tx, body: &str) -> Result<Vec<Record>, Fail> {
+    let id = body.trim();
+    project(who, tx, id, Word::Read)?;
+    records(tx.run(BY_PROJECT_SQL, &[org(who), text(id)])?, &FIELDS)
 }
 
 fn save(call: &Call, tx: &mut dyn Tx) -> Result<String, Fail> {
@@ -131,7 +143,7 @@ fn task(who: &Who, tx: &mut dyn Tx, id: &str) -> Result<Row, Fail> {
     first(tx.run(GET_SQL, &[org(who), text(id), reaching(who, Word::Write)])?)
 }
 
-fn count(field: &str, value: &str) -> Result<i64, Fail> {
+pub(crate) fn count(field: &str, value: &str) -> Result<i64, Fail> {
     value
         .parse::<i64>()
         .ok()
@@ -147,7 +159,7 @@ fn optional_count(field: &str, value: &str) -> Result<Value, Fail> {
     }
 }
 
-fn lasting(days: &str) -> Result<Value, Fail> {
+pub(crate) fn lasting(days: &str) -> Result<Value, Fail> {
     match days {
         "" => Ok(Value::Int(1)),
         days => match count("days", days)? {
@@ -157,7 +169,7 @@ fn lasting(days: &str) -> Result<Value, Fail> {
     }
 }
 
-fn planned(value: &str) -> Result<Value, Fail> {
+pub(crate) fn planned(value: &str) -> Result<Value, Fail> {
     if value.is_empty() {
         return Ok(Value::Null);
     }

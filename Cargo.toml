@@ -3,14 +3,14 @@ members = ["crates/*", "packs/example"]
 resolver = "3"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/jirathip-dev/openworks"
 
 [workspace.dependencies]
-openworks-core = { path = "crates/openworks-core", version = "0.1.0" }
-openworks-db = { path = "crates/openworks-db", version = "0.1.0" }
+openworks-core = { path = "crates/openworks-core", version = "0.2.0" }
+openworks-db = { path = "crates/openworks-db", version = "0.2.0" }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

@@ -14,6 +14,10 @@ WEB = "web/src/index.ts"
 EVENT = "contract/events/job-created.json"
 RUST_API = "pub struct Job { pub id: u64 }\npub fn open(id: u64) -> Job { Job { id } }\n"
 WEB_API = "export function mount(el: Element, props: { title: string }): void {\n  el.textContent = props.title;\n}\n"
+CURRENT = re.search(r'^version = "([^"]+)"', (ROOT / "Cargo.toml").read_text(), re.M).group(1)
+MAJOR, MINOR, PATCH = map(int, CURRENT.split("."))
+NEXT_PATCH = f"{MAJOR}.{MINOR}.{PATCH + 1}"
+BREAKING = f"{MAJOR}.{MINOR + 1}.0"
 EVENT_SHAPE = {"type": "object", "properties": {"job_id": {"type": "string"}}}
 
 
@@ -57,11 +61,11 @@ class Surface(unittest.TestCase):
         (REPO / ".git/info/exclude").write_text("/node_modules\n")
         git("add", "-A")
         git("commit", "-qm", "release")
-        git("tag", "v0.1.0")
+        git("tag", f"v{CURRENT}")
 
     def test_unchanged_and_added_surface_passes(self):
         write(LIB, self.core + RUST_API + "pub fn close(job: Job) -> u64 { job.id }\n")
-        self.assertEqual(surface(), (0, "public surface keeps everything v0.1.0 has\n"))
+        self.assertEqual(surface(), (0, f"public surface keeps everything v{CURRENT} has\n"))
 
     def test_breaking_changes_fail_until_the_version_breaks(self):
         write(LIB, self.core + "pub struct Job { pub id: u32 }\n")
@@ -73,17 +77,17 @@ class Surface(unittest.TestCase):
         self.assertIn("rust openworks_core::Job::id ", out)
         self.assertIn("web src/index.d.ts title: string;", out)
         self.assertIn('contract contract/events/job-created.json .properties.job_id.type="string"', out)
-        set_version("0.1.1", "0.1.1")
+        set_version(NEXT_PATCH, NEXT_PATCH)
         self.assertEqual(surface()[0], 1)
-        set_version("0.2.0", "0.2.0")
-        self.assertEqual(surface(), (0, "4 breaking changes since v0.1.0, released as 0.2.0\n"))
+        set_version(BREAKING, BREAKING)
+        self.assertEqual(surface(), (0, f"4 breaking changes since v{CURRENT}, released as {BREAKING}\n"))
 
     def test_one_version_for_crates_and_web(self):
-        self.assertEqual(surface("version"), (0, "0.1.0\n"))
-        set_version("0.2.0", "0.1.0")
+        self.assertEqual(surface("version"), (0, f"{CURRENT}\n"))
+        set_version(BREAKING, CURRENT)
         code, out = surface("version")
         self.assertEqual(code, 1)
-        self.assertIn("web/package.json is 0.1.0, Cargo.toml is 0.2.0", out)
+        self.assertIn(f"web/package.json is {CURRENT}, Cargo.toml is {BREAKING}", out)
 
 
 if __name__ == "__main__":
