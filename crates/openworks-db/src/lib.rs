@@ -21,6 +21,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ("0008_jobs", include_str!("../migrations/0008_jobs.sql")),
     ("0009_job_orders", include_str!("../migrations/0009_job_orders.sql")),
     ("0010_tasks", include_str!("../migrations/0010_tasks.sql")),
+    ("0011_host_refs", include_str!("../migrations/0011_host_refs.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -40,6 +41,13 @@ pub mod orgs {
 
     /// Lists every org, for due work.
     pub const ALL: &str = "select org_id from works.orgs";
+}
+
+/// The queries on events.
+pub mod events {
+    /// Lists the events after a sequence number, oldest first, at most a page: id, sequence number, kind, body, time.
+    pub const SINCE: &str =
+        "select event_id, seq, kind, body, at from works.events where org_id = $1 and seq > $2 order by seq limit $3";
 }
 
 /// The queries on idempotency keys.
@@ -149,6 +157,9 @@ pub mod clients {
 
     /// Adds the client the host knows by a reference, or renames it.
     pub const SYNC: &str = "insert into works.clients (org_id, client_id, name, host_ref) values ($1, $2, $3, $4) on conflict (org_id, host_ref) do update set name = excluded.name returning client_id";
+
+    /// Adds the client a host knows by a reference unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.clients (org_id, client_id, name, host_ref) values ($1, $2, $3, $4) on conflict (org_id, host_ref) do nothing returning client_id) select client_id from added union all select client_id from works.clients where org_id = $1 and host_ref = $4";
 }
 
 /// The queries on sites.
@@ -168,6 +179,9 @@ pub mod sites {
 
     /// Deactivates a site, keeping the first time it was.
     pub const DEACTIVATE: &str = "update works.sites set deactivated_at = coalesce(deactivated_at, $3) where org_id = $1 and site_id = $2 returning site_id";
+
+    /// Adds the site a host knows by a reference, under a client, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.sites (org_id, site_id, client_id, name, address, map_url, host_ref) values ($1, $2, $3, $4, $5, $6, $7) on conflict (org_id, host_ref) do nothing returning site_id) select site_id from added union all select site_id from works.sites where org_id = $1 and host_ref = $7";
 }
 
 /// The queries on the company's stages.
@@ -211,8 +225,8 @@ pub mod project_roles {
 
 /// The queries on projects; a person bound in place of null narrows a read to the projects they are a member of.
 pub mod projects {
-    /// Lists the projects: id, name, client, site, scope, tags, zone, stage, parent, link kind, won, lost, lost reason, lost note, archived.
-    pub const LIST: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and ($2::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $2)) order by p.name, p.project_id";
+    /// Lists a page of the projects at a stage, of a client and archived or not, each filter off when null: id, name, client, site, scope, tags, zone, stage, parent, link kind, won, lost, lost reason, lost note, archived.
+    pub const LIST: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and ($2::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $2)) and ($3::text is null or p.stage_key = $3) and ($4::text is null or p.client_id = $4) and ($5::bigint is null or (p.archived_at is not null) = ($5 = 1)) order by p.name, p.project_id limit $6 offset $7";
 
     /// Reads one project, with the columns `LIST` reads.
     pub const GET: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and p.project_id = $2 and ($3::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $3))";
@@ -231,6 +245,9 @@ pub mod projects {
 
     /// Archives a project, keeping the first time it was.
     pub const ARCHIVE: &str = "update works.projects set archived_at = coalesce(archived_at, $3) where org_id = $1 and project_id = $2 returning project_id";
+
+    /// Adds the project a host knows by a reference, at a stage, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.projects (org_id, project_id, name, client_id, site_id, stage_key, host_ref) values ($1, $2, $3, $4, $5, $6, $7) on conflict (org_id, host_ref) do nothing returning project_id) select project_id from added union all select project_id from works.projects where org_id = $1 and host_ref = $7";
 }
 
 /// The queries on the people of a project.
@@ -265,6 +282,12 @@ pub mod jobs {
 
     /// Moves a job to a status with its number, actual end and finished mark.
     pub const MOVE: &str = "update works.jobs set status = $3, number = $4, actual_end = $5, finished_at = $6 where org_id = $1 and job_id = $2 returning job_id";
+
+    /// Lists the jobs not cancelled whose planned window meets the days from `$2` to `$3`, by start, with the columns `LIST` reads.
+    pub const BOARD: &str = "select j.job_id, j.project_id, j.number, j.status, j.at_site, j.base_date, j.work_days, j.planned_start, j.planned_end, j.actual_start, j.actual_end, j.remark, j.finished_at from works.jobs j where j.org_id = $1 and j.status <> 'cancelled' and j.planned_start <= $3 and j.planned_end >= $2 and ($4::text is null or exists (select 1 from works.project_members m where m.org_id = j.org_id and m.project_id = j.project_id and m.person_id = $4)) order by j.planned_start, j.job_id";
+
+    /// Adds the job a host knows by a reference, with its status, number and planned window, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.jobs (org_id, job_id, project_id, status, number, planned_start, planned_end, host_ref) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict (org_id, host_ref) do nothing returning job_id) select job_id from added union all select job_id from works.jobs where org_id = $1 and host_ref = $8";
 }
 
 /// The queries on job orders, one row per revision of a job's instruction, and their lines.
@@ -321,6 +344,12 @@ pub mod tasks {
     /// Restores an archived task.
     pub const RESTORE: &str =
         "update works.tasks set archived_at = null where org_id = $1 and task_id = $2 returning task_id";
+
+    /// Lists a project's tasks, job by job in order, with the columns `LIST` reads.
+    pub const BY_PROJECT: &str = "select t.task_id, t.job_id, t.code, t.name, t.color, t.start_offset, t.days, t.planned_hours, t.weight, t.sort, t.remark, t.archived_at from works.tasks t join works.jobs j on j.org_id = t.org_id and j.job_id = t.job_id where t.org_id = $1 and j.project_id = $2 order by j.job_id, t.sort, t.task_id";
+
+    /// Adds the task a host knows by a reference, on a job, unless it is there; returns its id either way.
+    pub const IMPORT: &str = "with added as (insert into works.tasks (org_id, task_id, job_id, code, name, start_offset, days, planned_hours, sort, host_ref) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) on conflict (org_id, host_ref) do nothing returning task_id) select task_id from added union all select task_id from works.tasks where org_id = $1 and host_ref = $10";
 }
 
 /// Runs every migration's statements in the transaction; each is idempotent.

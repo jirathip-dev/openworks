@@ -7,10 +7,10 @@ use std::thread;
 
 use memory::{T0, ok, send};
 use openworks::Openworks;
-use openworks_core::{Fail, Hours, Role, Row, Tx, Value};
+use openworks_core::{Fail, Hours, Id, Role, Row, Tx, Value};
 use openworks_db::{
-    AUDIT, EVENT, clients, jobs, lost_reasons, members, project_members, project_roles, projects, series, sites,
-    stages, tasks,
+    AUDIT, EVENT, clients, events, jobs, lost_reasons, members, project_members, project_roles, projects, series,
+    sites, stages, tasks,
 };
 
 #[derive(Clone, Default)]
@@ -26,7 +26,21 @@ struct Store {
     tasks: Vec<Row>,
     numbers: HashMap<String, i64>,
     events: Vec<Value>,
+    trail: Vec<Row>,
+    refs: Vec<(&'static str, Value, Value, Value)>,
     audits: usize,
+}
+
+fn day(value: &Value) -> Option<&str> {
+    if let Value::Text(day) = value { Some(day) } else { None }
+}
+
+fn int(value: &Value) -> usize {
+    if let Value::Int(int) = value {
+        usize::try_from(*int).unwrap()
+    } else {
+        panic!("{value:?}")
+    }
 }
 
 fn text(value: &str) -> Value {
@@ -91,12 +105,6 @@ impl Store {
                 self.projects.push(row);
                 Vec::new()
             }
-            projects::LIST => self
-                .projects
-                .iter()
-                .filter(|row| row[0] == p[0] && self.reaches(row, &p[1]))
-                .map(|row| row[1..].to_vec())
-                .collect(),
             projects::GET => self
                 .projects
                 .iter()
@@ -221,6 +229,104 @@ impl Store {
             _ => Vec::new(),
         }
     }
+
+    fn reads(&self, sql: &'static str, p: &[Value]) -> Option<Vec<Row>> {
+        let on = |row: &[Value], at: usize, value: &Value| *value == Value::Null || row[at] == *value;
+        let staffed = |job: &Row, person: &Value| self.reaches(&vec![job[0].clone(), job[2].clone()], person);
+        Some(match sql {
+            projects::LIST => {
+                let archived = |row: &Row| on(&[Value::Int((row[15] != Value::Null).into())], 0, &p[4]);
+                let kept = self.projects.iter().filter(|row| {
+                    row[0] == p[0]
+                        && self.reaches(row, &p[1])
+                        && on(row, 8, &p[2])
+                        && on(row, 3, &p[3])
+                        && archived(row)
+                });
+                let rows = sorted(kept, |row| format!("{:?}{:?}", row[1], row[0]));
+                rows.into_iter().skip(int(&p[6])).take(int(&p[5])).collect()
+            }
+            jobs::BOARD => {
+                let meets =
+                    |row: &Row| day(&row[8]).is_some() && day(&row[8]) <= day(&p[2]) && day(&row[9]) >= day(&p[1]);
+                let kept = self
+                    .jobs
+                    .iter()
+                    .filter(|row| row[0] == p[0] && row[4] != text("cancelled") && meets(row) && staffed(row, &p[3]));
+                sorted(kept, |row| format!("{:?}{:?}", row[7], row[0]))
+            }
+            tasks::BY_PROJECT => {
+                let of = |row: &Row| {
+                    self.jobs
+                        .iter()
+                        .any(|job| job[..2] == [row[0].clone(), row[2].clone()] && job[2] == p[1])
+                };
+                let kept = self.tasks.iter().filter(|row| row[0] == p[0] && of(row));
+                sorted(kept, |row| format!("{:?}{:?}{:?}", row[1], row[9], row[0]))
+            }
+            events::SINCE => self
+                .trail
+                .iter()
+                .zip(1..)
+                .filter(|(row, seq)| row[1] == p[0] && *seq > int(&p[1]))
+                .take(int(&p[2]))
+                .map(|(row, seq)| [&row[..1], &[Value::Int(seq.try_into().unwrap())], &row[2..]].concat())
+                .collect(),
+            _ => return None,
+        })
+    }
+
+    fn imports(&mut self, sql: &'static str, p: &[Value]) -> Option<Vec<Row>> {
+        let (org, id, blank) = (p[0].clone(), p[1].clone(), text(""));
+        let added = match sql {
+            clients::IMPORT => vec![(clients::ADD, p[..4].to_vec())],
+            sites::IMPORT => vec![(sites::ADD, p[..6].to_vec())],
+            projects::IMPORT => vec![(
+                projects::ADD,
+                [&p[..5], &[blank.clone(), blank.clone(), blank, p[5].clone()]].concat(),
+            )],
+            jobs::IMPORT => vec![
+                (jobs::ADD, p[..3].to_vec()),
+                (
+                    jobs::MOVE,
+                    vec![
+                        org.clone(),
+                        id.clone(),
+                        p[3].clone(),
+                        p[4].clone(),
+                        Value::Null,
+                        Value::Null,
+                    ],
+                ),
+                (jobs::PLAN, vec![org.clone(), id.clone(), p[5].clone(), p[6].clone()]),
+            ],
+            tasks::IMPORT => vec![(
+                tasks::ADD,
+                [&p[..5], &[Value::Null], &p[5..8], &[Value::Null, p[8].clone(), blank]].concat(),
+            )],
+            _ => return None,
+        };
+        let reference = p.last()?.clone();
+        let key = (sql, org, reference);
+        if let Some((.., kept)) = self
+            .refs
+            .iter()
+            .find(|(table, org, reference, _)| (*table, org, reference) == (key.0, &key.1, &key.2))
+        {
+            return Some(vec![vec![kept.clone()]]);
+        }
+        for (sql, params) in added {
+            self.run(sql, &params).ok()?;
+        }
+        self.refs.push((key.0, key.1, key.2, id.clone()));
+        Some(vec![vec![id]])
+    }
+}
+
+fn sorted<'a>(rows: impl Iterator<Item = &'a Row>, key: impl Fn(&Row) -> String) -> Vec<Row> {
+    let mut rows: Vec<Row> = rows.map(|row| row[1..].to_vec()).collect();
+    rows.sort_by_key(key);
+    rows
 }
 
 impl Tx for Store {
@@ -239,6 +345,7 @@ impl Tx for Store {
             }
             EVENT => {
                 self.events.push(p[2].clone());
+                self.trail.push(p.to_vec());
                 Vec::new()
             }
             stages::SAVE => {
@@ -272,7 +379,10 @@ impl Tx for Store {
                 Vec::new()
             }
             sites::GET => keyed(&self.sites, p),
-            _ => self.project_rows(sql, p),
+            _ => match self.reads(sql, p).or_else(|| self.imports(sql, p)) {
+                Some(rows) => rows,
+                None => self.project_rows(sql, p),
+            },
         })
     }
 }
@@ -1035,4 +1145,218 @@ fn only_a_task_with_no_reported_hours_may_be_archived() {
     assert!(Hours::ZERO.lets_archive());
     assert!(!Hours::hundredths(25).unwrap().lets_archive());
     assert_eq!(Hours::hundredths(-1), None);
+}
+
+fn ids(listed: &str) -> Vec<String> {
+    let items = listed.split(r#"{"id":""#).skip(1);
+    items.map(|item| item.split('"').next().unwrap().to_owned()).collect()
+}
+
+#[test]
+fn the_project_list_filters_by_stage_client_and_archive_and_pages() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let client = ok(send(&openworks, "/clients/save", "owner", "\nAcme\n"));
+    let body = format!("\nAcme hall\n{client}\n\n\n\n\nlead");
+    let acme = ok(send(&openworks, "/projects/save", "owner", &body));
+    let [cabin, barn] = ["Cabin", "Barn"].map(|name| project(&openworks, name));
+    ok(send(
+        &openworks,
+        "/projects/move-stage",
+        "owner",
+        &format!("{barn}\nquoted"),
+    ));
+    ok(send(&openworks, "/projects/archive", "owner", &cabin));
+    let listed = |body: &str| ids(&ok(send(&openworks, "/projects/list", "viewer", body)));
+
+    assert_eq!(listed(""), [&acme, &barn, &cabin].map(String::to_owned));
+    assert_eq!(listed("quoted"), [barn.clone()]);
+    assert_eq!(listed(&format!("\n{client}")), [acme.clone()]);
+    assert_eq!(listed("\n\nyes"), [cabin.clone()]);
+    assert_eq!(listed("lead\n\nno"), [acme.clone()]);
+    assert_eq!(listed("\n\n\n2"), [acme, barn]);
+    assert_eq!(listed("\n\n\n2\n2"), [cabin]);
+    let refused = |body: &str| status(&openworks, "/projects/list", "viewer", body);
+    assert_eq!(refused("\n\nmaybe"), (400, "invalid: archived is yes or no".to_owned()));
+    assert_eq!(refused("\n\n\n501"), (400, "invalid: limit is 1 to 500".to_owned()));
+}
+
+#[test]
+fn a_projects_page_holds_its_record_its_people_and_its_jobs() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let (id, job) = planned(&openworks, "Hall");
+    ok(send(
+        &openworks,
+        "/projects/members-save",
+        "owner",
+        &format!("{id}\nmember lead"),
+    ));
+
+    let page = ok(send(&openworks, "/projects/page", "member", &id));
+
+    let got = ok(send(&openworks, "/projects/get", "owner", &id));
+    let members = ok(send(&openworks, "/projects/members", "owner", &id));
+    let jobs = ok(send(&openworks, "/jobs/list", "owner", &id));
+    let project = &got[1..got.len() - 1];
+    assert_eq!(
+        page,
+        format!(r#"{{"project":{project},"members":{members},"jobs":{jobs}}}"#)
+    );
+    assert_eq!((ids(&members), ids(&jobs)), (vec!["member".to_owned()], vec![job]));
+    assert_eq!(send(&openworks, "/projects/page", "member2", &id).status, 404);
+    assert_eq!(send(&openworks, "/projects/page", "other", &id).status, 404);
+}
+
+#[test]
+fn the_board_lists_the_jobs_whose_planned_window_meets_the_days() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let (hall, early) = planned(&openworks, "Hall");
+    let (_, late) = planned(&openworks, "Barn");
+    ok(send(
+        &openworks,
+        "/jobs/reschedule",
+        "owner",
+        &format!("{late}\n2026-02-02\n2026-02-06"),
+    ));
+    project(&openworks, "Shed");
+    ok(send(
+        &openworks,
+        "/projects/members-save",
+        "owner",
+        &format!("{hall}\nmember lead"),
+    ));
+    let board = |credential: &str, body: &str| ids(&ok(send(&openworks, "/jobs/board", credential, body)));
+
+    assert_eq!(board("viewer", "2026-01-01\n2026-01-05"), [early.clone()]);
+    assert_eq!(board("viewer", "2026-01-09\n2026-02-02"), [early.clone(), late.clone()]);
+    assert!(board("viewer", "2026-01-10\n2026-02-01").is_empty());
+    assert_eq!(board("member", "2026-01-01\n2026-12-31"), [early.clone()]);
+    assert!(board("other", "2026-01-01\n2026-12-31").is_empty());
+    assert_eq!(win(&openworks, &hall).0, 200);
+    ok(send(&openworks, "/jobs/cancel", "owner", &early));
+    assert_eq!(board("viewer", "2026-01-01\n2026-12-31"), [late]);
+    let refused = status(&openworks, "/jobs/board", "viewer", "2026-01-09\n2026-01-05");
+    assert_eq!(refused, (400, "invalid: 2026-01-05 is before 2026-01-09".to_owned()));
+}
+
+#[test]
+fn changes_lists_the_events_after_a_sequence_number_to_a_reader_of_every_project() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let changes = |body: &str| ok(send(&openworks, "/projects/changes", "viewer", body));
+
+    assert_eq!(ids(&changes("")).len(), 8);
+    let page = changes("3\n2");
+    assert_eq!(ids(&page).len(), 2);
+    let fourth = r#""seq":4,"kind":"projects.stage-save","body":"done\u000aDone\u000adone\u000a4","at":1700000000000"#;
+    assert!(page.contains(fourth) && page.contains(r#""seq":5,"#), "{page}");
+    ok(send(&openworks, "/projects/stage-save", "other", "lead\nLead\nopen\n1"));
+    assert_eq!(changes("8"), "[]");
+    project(&openworks, "Hall");
+    assert!(changes("8").contains(r#""seq":10,"kind":"projects.save""#));
+    let refused = status(&openworks, "/projects/changes", "member", "");
+    assert_eq!(refused, (403, "needs read".to_owned()));
+}
+
+const SPINE: &str = "client\tC1\tAcme
+site\tS1\tC1\tYard\t1 Main Road\t
+project\tP1\tHall\tC1\tS1\tlead
+project\tP2\tBarn\t\t\tlead
+job\tJ1\tP1\topen\tOLD-7\t2026-01-05\t2026-01-09
+job\tJ2\tP1\tproposed\t\t\t
+job\tJ3\tP2\tproposed\t\t\t
+task\tT1\tJ1\tDIG\tDig\t0\t2\t1600
+task\tT2\tJ1\tPOUR\tPour\t2\t\t
+task\tT3\tJ3\tROOF\tRoof\t\t\t";
+
+fn import(openworks: &Openworks<&TestHost>, records: &str) -> Result<String, Fail> {
+    openworks.import(Id("host".to_owned()), Id("o1".to_owned()), records)
+}
+
+fn kept(store: &Store) -> [usize; 5] {
+    [
+        store.clients.len(),
+        store.sites.len(),
+        store.projects.len(),
+        store.jobs.len(),
+        store.tasks.len(),
+    ]
+}
+
+#[test]
+fn an_import_by_host_ref_run_twice_writes_once() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+
+    let once = import(&openworks, SPINE).unwrap();
+    let audits = host.store().audits;
+    let twice = import(&openworks, SPINE).unwrap();
+
+    assert_eq!(twice, once);
+    assert_eq!(kept(&host.store()), [1, 1, 2, 3, 3]);
+    assert_eq!(host.store().audits, audits + 1);
+    assert_eq!(host.store().events.last(), Some(&text("projects.import")));
+    let id = |line: &str| {
+        once.lines()
+            .find(|kept| kept.starts_with(line))
+            .unwrap()
+            .rsplit('\t')
+            .next()
+            .unwrap()
+    };
+    let (hall, job) = (id("project\tP1\t"), id("job\tJ1\t"));
+    assert_eq!(
+        field(&openworks, "viewer", hall, "site_id"),
+        format!(r#""{}""#, id("site\tS1\t"))
+    );
+    assert_eq!(job_field(&openworks, job, "number"), r#""OLD-7""#);
+    assert_eq!(
+        ids(&ok(send(&openworks, "/jobs/board", "viewer", "2026-01-09\n2026-01-09"))),
+        [job]
+    );
+    let tasks = ok(send(&openworks, "/tasks/by-project", "viewer", hall));
+    assert_eq!(ids(&tasks), [id("task\tT1\t"), id("task\tT2\t")]);
+    assert!(tasks.contains(r#""code":"POUR","name":"Pour","color":null,"start_offset":2,"days":1,"planned_hours":null,"weight":null,"order":2"#), "{tasks}");
+    assert_eq!(send(&openworks, "/tasks/by-project", "member", hall).status, 404);
+}
+
+#[test]
+fn an_import_line_out_of_shape_imports_nothing() {
+    let host = TestHost::default();
+    let openworks = Openworks::new(&host).build().unwrap();
+    set_up(&openworks);
+    let audits = host.store().audits;
+
+    for (line, why) in [
+        ("site\tS1\tC9\tYard\t\t", "no client C9 before this line"),
+        ("project\tP2\tHall\tC1\tS9\tlead", "site S9 is not one of client C1's"),
+        (
+            "job\tJ1\tP1\topen\t\t\t",
+            "a job has a number once it is no longer proposed",
+        ),
+        ("job\tJ1\tP1\tpaused\t\t\t", "no job status paused"),
+        ("task\tT1\tJ9\t\tDig\t\t\t", "no job J9 before this line"),
+        ("widget\tW1\tGear", "an import line of kind widget is out of shape"),
+    ] {
+        let records = format!("client\tC1\tAcme\nproject\tP1\tHall\tC1\t\tlead\n{line}");
+        assert_eq!(
+            import(&openworks, &records),
+            Err(Fail::Invalid(why.to_owned())),
+            "{line}"
+        );
+    }
+    assert_eq!(
+        import(&openworks, "project\tP1\tHall\t\t\tnowhere"),
+        Err(Fail::NotFound)
+    );
+    assert_eq!(kept(&host.store()), [0; 5]);
+    assert_eq!(host.store().audits, audits);
+    assert_eq!(send(&openworks, "/projects/import", "manager", SPINE).status, 403);
 }

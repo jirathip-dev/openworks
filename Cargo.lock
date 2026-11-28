@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "openworks"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "openworks-core",
  "openworks-db",
@@ -12,18 +12,18 @@ dependencies = [
 
 [[package]]
 name = "openworks-core"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "openworks-db"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "openworks-core",
 ]
 
 [[package]]
 name = "openworks-pack-example"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "openworks",
  "openworks-core",
@@ -32,4 +32,4 @@ dependencies = [
 
 [[package]]
 name = "openworks-server"
-version = "0.1.0"
+version = "0.2.0"

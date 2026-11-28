@@ -473,6 +473,8 @@ fn body(operation: Operation) -> &'static str {
         Operation::ApprovalPending
         | Operation::ApprovalRecent
         | Operation::ProjectList
+        | Operation::ProjectChanges
+        | Operation::ProjectImport
         | Operation::StageList
         | Operation::LostReasonList
         | Operation::ProjectRoleList => "",
@@ -491,6 +493,8 @@ fn body(operation: Operation) -> &'static str {
         Operation::LostReasonSave => "late\nToo late\nyes",
         Operation::ProjectRoleSave => "lead\nLead",
         Operation::ProjectGet
+        | Operation::ProjectPage
+        | Operation::TaskByProject
         | Operation::ProjectLink
         | Operation::ProjectMembers
         | Operation::ProjectMembersSave
@@ -499,6 +503,7 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobGet | Operation::JobCancel | Operation::JobOrderList | Operation::TaskList => "jo",
         Operation::JobSave => "jo\nno\n2026-01-05\n1,2,3,4,5\n2026-01-05\nGate code",
         Operation::JobReschedule => "jo\n2026-01-05\n2026-01-09",
+        Operation::JobBoard => "2026-01-05\n2026-01-09",
         Operation::JobOpen => "jp",
         Operation::JobFinish => "jo\n2026-01-09",
         Operation::JobReopen => "jf",
@@ -542,6 +547,7 @@ fn the_role_table_holds_for_every_declared_operation() {
             let answered = send(&openworks, &path, &email(role), Some("k"), body(*operation));
 
             let expected = match role.grants(declaration.needs()) {
+                Some(Scope::Own) if *operation == Operation::ProjectChanges => 403,
                 Some(_) => 200,
                 None => 403,
             };
@@ -795,7 +801,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 24);
+    assert_eq!(once.len(), 32);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }
