@@ -6,13 +6,13 @@ use openworks_core::{Approval, Fail, Pack, Row, Tx, Value, Word};
 use openworks_db::{approvals, attachments};
 
 #[derive(Clone, Default)]
-struct Approvals {
+struct Ledger {
     kinds: Vec<Row>,
     approvals: Vec<Row>,
     files: Vec<Row>,
 }
 
-impl Tx for Approvals {
+impl Tx for Ledger {
     fn run(&mut self, sql: &'static str, params: &[Value]) -> Result<Vec<Row>, Fail> {
         Ok(self.approval_rows(sql, params).unwrap_or_default())
     }
@@ -29,7 +29,7 @@ fn live_state(row: &Row) -> bool {
     row[4] == Value::Text("pending".to_owned())
 }
 
-impl Approvals {
+impl Ledger {
     fn approval_rows(&mut self, sql: &'static str, params: &[Value]) -> Option<Vec<Row>> {
         let p = |at: usize| params[at].clone();
         let pick = |rows: &mut dyn Iterator<Item = &Row>, columns: [usize; 7]| -> Vec<Row> {
@@ -112,7 +112,7 @@ impl Approvals {
     }
 }
 
-fn seed(host: &TestHost<Approvals>) {
+fn seed(host: &TestHost<Ledger>) {
     let mut committed = host.committed.borrow_mut();
     let store = &mut committed.area;
     let text = |text: &str| Value::Text(text.to_owned());
@@ -132,22 +132,22 @@ fn seed(host: &TestHost<Approvals>) {
 
 const MANAGER: &str = "manager@o.test";
 
-fn ask(openworks: &Openworks<&TestHost<Approvals>>, key: &str, body: &str) -> Response {
+fn ask(openworks: &Openworks<&TestHost<Ledger>>, key: &str, body: &str) -> Response {
     send(openworks, "/approvals/request", "member@o.test", Some(key), body)
 }
 
-fn decide(openworks: &Openworks<&TestHost<Approvals>>, who: &str, body: &str) -> String {
+fn decide(openworks: &Openworks<&TestHost<Ledger>>, who: &str, body: &str) -> String {
     call(openworks, "/approvals/decide", who, body).body
 }
 
-fn listed(openworks: &Openworks<&TestHost<Approvals>>, read: &str) -> Vec<String> {
+fn listed(openworks: &Openworks<&TestHost<Ledger>>, read: &str) -> Vec<String> {
     let body = call(openworks, &format!("/approvals/{read}"), "viewer@o.test", "").body;
     body.lines().map(str::to_owned).collect()
 }
 
 #[test]
 fn a_rejected_approval_is_asked_for_again() {
-    let host = TestHost::<Approvals>::default();
+    let host = TestHost::<Ledger>::default();
     let openworks = staffed(&host, None);
     seed(&host);
 
@@ -175,7 +175,7 @@ fn a_rejected_approval_is_asked_for_again() {
 
 #[test]
 fn an_approved_approval_holds_until_an_owner_resets_it() {
-    let host = TestHost::<Approvals>::default();
+    let host = TestHost::<Ledger>::default();
     let openworks = staffed(&host, None);
     seed(&host);
 
@@ -193,7 +193,7 @@ fn an_approved_approval_holds_until_an_owner_resets_it() {
 
 #[test]
 fn a_kind_that_asks_for_a_signature_takes_a_yes_only_with_a_stored_file() {
-    let host = TestHost::<Approvals>::default();
+    let host = TestHost::<Ledger>::default();
     let openworks = staffed(&host, None);
     seed(&host);
     let id = ask(&openworks, "r", "handover job-1").body;
@@ -215,7 +215,7 @@ fn a_kind_that_asks_for_a_signature_takes_a_yes_only_with_a_stored_file() {
 
 #[test]
 fn an_assistant_proposes_a_decision_and_never_makes_one() {
-    let host = TestHost::<Approvals>::default();
+    let host = TestHost::<Ledger>::default();
     let openworks = staffed(&host, None);
     seed(&host);
 
@@ -235,7 +235,7 @@ fn an_assistant_proposes_a_decision_and_never_makes_one() {
 
 #[test]
 fn a_pack_kind_shares_the_engine_and_asks_for_its_own_word() {
-    let host = TestHost::<Approvals>::default();
+    let host = TestHost::<Ledger>::default();
     let kind = Approval {
         key: "pack.check",
         needs: Word::Settings,
@@ -265,7 +265,7 @@ fn a_pack_kind_shares_the_engine_and_asks_for_its_own_word() {
 
 #[test]
 fn a_company_adds_its_own_kind_and_an_unknown_kind_is_refused() {
-    let host = TestHost::<Approvals>::default();
+    let host = TestHost::<Ledger>::default();
     let openworks = staffed(&host, None);
     seed(&host);
 

@@ -451,7 +451,6 @@ pub fn mounts() -> Vec<Mount> {
     crate::AREAS.iter().map(|mount| mount()).collect()
 }
 
-/// An email as members are keyed by it: trimmed and lowercased.
 pub(crate) fn address(text: &str) -> Result<String, Fail> {
     let email = text.trim().to_lowercase();
     if email.contains('@') && !email.contains(char::is_whitespace) {
