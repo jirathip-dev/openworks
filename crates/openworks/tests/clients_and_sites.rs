@@ -1,13 +1,10 @@
 mod common;
+mod memory;
 
-use std::cell::{Cell, RefCell};
-
-use common::NoFiles;
-use openworks::{Caller, Files, Host, Openworks, Request, Response, Via};
+use memory::{T0, ok, send};
+use openworks::Openworks;
 use openworks_core::{Fail, Id, Role, Row, Tx, Value};
 use openworks_db::{AUDIT, EVENT, clients, members, sites};
-
-const T0: i64 = 1_700_000_000_000;
 
 #[derive(Clone, Default)]
 struct Store {
@@ -98,62 +95,7 @@ impl Tx for Store {
     }
 }
 
-#[derive(Default)]
-struct TestHost {
-    committed: RefCell<Store>,
-    next_id: Cell<u32>,
-    clock: Cell<i64>,
-}
-
-impl Host for &TestHost {
-    fn who(&self, credential: &str) -> Option<Caller> {
-        let org = if credential == "other" { "o2" } else { "o1" };
-        Some(Caller {
-            person: Id(credential.to_owned()),
-            email: format!("{credential}@o.test"),
-            org: Id(org.to_owned()),
-            via: Via::Person,
-        })
-    }
-
-    fn transact(&self, work: &mut dyn FnMut(&mut dyn Tx) -> Result<(), Fail>) -> Result<(), Fail> {
-        let mut pending = self.committed.borrow().clone();
-        work(&mut pending)?;
-        *self.committed.borrow_mut() = pending;
-        Ok(())
-    }
-
-    fn id(&self) -> Id {
-        self.next_id.set(self.next_id.get() + 1);
-        Id(format!("id{}", self.next_id.get()))
-    }
-
-    fn now(&self) -> i64 {
-        T0 + self.clock.get()
-    }
-
-    fn files(&self) -> &dyn Files {
-        &NoFiles
-    }
-
-    fn name(&self, _: &str) -> Option<String> {
-        None
-    }
-}
-
-fn send(openworks: &Openworks<&TestHost>, path: &str, credential: &str, body: &str) -> Response {
-    openworks.handle(&Request {
-        path: path.to_owned(),
-        credential: credential.to_owned(),
-        idempotency_key: Some(format!("{path} {body}")),
-        body: body.to_owned(),
-    })
-}
-
-fn ok(response: Response) -> String {
-    assert_eq!(response.status, 200, "{}", response.body);
-    response.body
-}
+type TestHost = memory::TestHost<Store>;
 
 #[test]
 fn a_client_is_saved_listed_got_and_renamed() {

@@ -15,7 +15,9 @@ mod files;
 mod json;
 mod members;
 mod orgs;
+mod projects;
 mod series;
+mod setup;
 mod sites;
 
 const AFTER_COMMIT_ATTEMPTS: usize = 3;
@@ -43,18 +45,33 @@ openworks_core::operations! {
     SiteGet => sites::GET,
     SiteSave => sites::SAVE,
     SiteDeactivate => sites::DEACTIVATE,
+    ProjectList => projects::LIST,
+    ProjectGet => projects::GET,
+    ProjectSave => projects::SAVE,
+    ProjectMoveStage => projects::MOVE_STAGE,
+    ProjectLink => projects::LINK,
+    ProjectMembers => projects::MEMBERS,
+    ProjectMembersSave => projects::MEMBERS_SAVE,
+    ProjectArchive => projects::ARCHIVE,
+    StageList => setup::STAGES,
+    StageSave => setup::STAGE_SAVE,
+    LostReasonList => setup::LOST_REASONS,
+    LostReasonSave => setup::LOST_REASON_SAVE,
+    ProjectRoleList => setup::ROLES,
+    ProjectRoleSave => setup::ROLE_SAVE,
 }
 
 const KEY: &str = "orgs";
 
 const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 5] = [
+const HOMES: [(&str, &str); 6] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
     ("/clients", CLIENTS),
     ("/sites", "sites"),
+    ("/projects", "projects"),
 ];
 
 impl Operation {
@@ -73,6 +90,7 @@ impl Operation {
                 ("/clients", CLIENTS)
             }
             Self::SiteList | Self::SiteGet | Self::SiteSave | Self::SiteDeactivate => ("/sites", "sites"),
+            _ => ("/projects", "projects"),
         }
     }
 

@@ -8,7 +8,7 @@ use openworks::{Caller, Files, Host, Openworks, Operation, Refused, Request, Res
 use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
-use openworks_db::{approvals, attachments, clients, idempotency, members, sites};
+use openworks_db::{approvals, attachments, clients, idempotency, members, projects, sites, stages};
 
 type Statement = (&'static str, Vec<Value>);
 
@@ -70,6 +70,20 @@ impl Tx for Store {
                     .collect(),
             ],
             clients::DEACTIVATE | clients::SYNC | sites::DEACTIVATE => vec![vec![Value::Text("c1".to_owned())]],
+            projects::GET => {
+                let mut row: Row = ["p1", "Yard", "c1", "s1", "", "", "", "lead"]
+                    .map(|field| Value::Text(field.to_owned()))
+                    .into();
+                row.resize(15, Value::Null);
+                vec![row]
+            }
+            stages::GET => vec![vec![
+                Value::Text("lead".to_owned()),
+                Value::Text("Lead".to_owned()),
+                Value::Text("open".to_owned()),
+                Value::Int(0),
+            ]],
+            projects::MOVE | projects::LINK | projects::ARCHIVE => vec![vec![Value::Text("p1".to_owned())]],
             idempotency::FIND => self
                 .keys
                 .iter()
@@ -404,7 +418,12 @@ fn body(operation: Operation) -> &'static str {
         Operation::ApprovalRequest => "visit job-3\nplease",
         Operation::ApprovalDecide => "a1 yes",
         Operation::ApprovalReset => "a2",
-        Operation::ApprovalPending | Operation::ApprovalRecent => "",
+        Operation::ApprovalPending
+        | Operation::ApprovalRecent
+        | Operation::ProjectList
+        | Operation::StageList
+        | Operation::LostReasonList
+        | Operation::ProjectRoleList => "",
         Operation::ClientSave => "\nAcme\n",
         Operation::ClientSync => "ref-1\nAcme",
         Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
@@ -414,6 +433,16 @@ fn body(operation: Operation) -> &'static str {
         | Operation::SiteList
         | Operation::SiteGet
         | Operation::SiteDeactivate => "c1",
+        Operation::ProjectSave => "\nYard\n\n\n\n\n\nlead",
+        Operation::ProjectMoveStage => "p1\nlead",
+        Operation::StageSave => "lead\nLead\nopen\n1",
+        Operation::LostReasonSave => "late\nToo late\nyes",
+        Operation::ProjectRoleSave => "lead\nLead",
+        Operation::ProjectGet
+        | Operation::ProjectLink
+        | Operation::ProjectMembers
+        | Operation::ProjectMembersSave
+        | Operation::ProjectArchive => "p1",
     }
 }
 
@@ -423,7 +452,7 @@ fn the_role_table_grants_every_word() {
     let table = [
         (Role::Owner, [Some(All), Some(All), Some(All), Some(All), Some(All)]),
         (Role::Manager, [Some(All), Some(All), Some(All), None, None]),
-        (Role::Member, [Some(All), Some(Own), None, None, None]),
+        (Role::Member, [Some(Own), Some(Own), None, None, None]),
         (Role::Viewer, [Some(All), None, None, None, None]),
     ];
     assert_eq!(
@@ -703,7 +732,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 14);
+    assert_eq!(once.len(), 19);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }

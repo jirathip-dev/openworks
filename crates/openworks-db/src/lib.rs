@@ -17,6 +17,7 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
         "0006_clients_and_sites",
         include_str!("../migrations/0006_clients_and_sites.sql"),
     ),
+    ("0007_projects", include_str!("../migrations/0007_projects.sql")),
 ];
 
 /// Leaves the audit row of a write.
@@ -164,6 +165,81 @@ pub mod sites {
 
     /// Deactivates a site, keeping the first time it was.
     pub const DEACTIVATE: &str = "update works.sites set deactivated_at = coalesce(deactivated_at, $3) where org_id = $1 and site_id = $2 returning site_id";
+}
+
+/// The queries on the company's stages.
+pub mod stages {
+    /// Lists every stage: key, name, kind and sort.
+    pub const LIST: &str =
+        "select stage_key, name, kind, sort from works.stages where org_id = $1 order by sort, stage_key";
+
+    /// Reads one stage: key, name, kind and sort.
+    pub const GET: &str = "select stage_key, name, kind, sort from works.stages where org_id = $1 and stage_key = $2";
+
+    /// Adds a stage by key, or changes its name, kind and sort.
+    pub const SAVE: &str = "insert into works.stages (org_id, stage_key, name, kind, sort) values ($1, $2, $3, $4, $5) on conflict (org_id, stage_key) do update set name = excluded.name, kind = excluded.kind, sort = excluded.sort";
+}
+
+/// The queries on the company's lost reasons.
+pub mod lost_reasons {
+    /// Lists every lost reason: key, name and whether it needs a note.
+    pub const LIST: &str =
+        "select reason_key, name, needs_note from works.lost_reasons where org_id = $1 order by reason_key";
+
+    /// Reads one lost reason: key, name and whether it needs a note.
+    pub const GET: &str =
+        "select reason_key, name, needs_note from works.lost_reasons where org_id = $1 and reason_key = $2";
+
+    /// Adds a lost reason by key, or changes its name and whether it needs a note.
+    pub const SAVE: &str = "insert into works.lost_reasons (org_id, reason_key, name, needs_note) values ($1, $2, $3, $4) on conflict (org_id, reason_key) do update set name = excluded.name, needs_note = excluded.needs_note";
+}
+
+/// The queries on the company's project roles.
+pub mod project_roles {
+    /// Lists every project role: key and name.
+    pub const LIST: &str = "select role_key, name from works.project_roles where org_id = $1 order by role_key";
+
+    /// Reads one project role: key and name.
+    pub const GET: &str = "select role_key, name from works.project_roles where org_id = $1 and role_key = $2";
+
+    /// Adds a project role by key, or renames it.
+    pub const SAVE: &str = "insert into works.project_roles (org_id, role_key, name) values ($1, $2, $3) on conflict (org_id, role_key) do update set name = excluded.name";
+}
+
+/// The queries on projects; a person bound in place of null narrows a read to the projects they are a member of.
+pub mod projects {
+    /// Lists the projects: id, name, client, site, scope, tags, zone, stage, parent, link kind, won, lost, lost reason, lost note, archived.
+    pub const LIST: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and ($2::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $2)) order by p.name, p.project_id";
+
+    /// Reads one project, with the columns `LIST` reads.
+    pub const GET: &str = "select p.project_id, p.name, p.client_id, p.site_id, p.scope, p.tags, p.zone, p.stage_key, p.parent_id, p.link_kind, p.won_at, p.lost_at, p.lost_reason, p.lost_note, p.archived_at from works.projects p where p.org_id = $1 and p.project_id = $2 and ($3::text is null or exists (select 1 from works.project_members m where m.org_id = p.org_id and m.project_id = p.project_id and m.person_id = $3))";
+
+    /// Adds a project at a stage.
+    pub const ADD: &str = "insert into works.projects (org_id, project_id, name, client_id, site_id, scope, tags, zone, stage_key) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)";
+
+    /// Changes a project's name, client, site, scope, tags and zone.
+    pub const SAVE: &str = "update works.projects set name = $3, client_id = $4, site_id = $5, scope = $6, tags = $7, zone = $8 where org_id = $1 and project_id = $2 returning project_id";
+
+    /// Moves a project to a stage with its won and lost marks.
+    pub const MOVE: &str = "update works.projects set stage_key = $3, won_at = $4, lost_at = $5, lost_reason = $6, lost_note = $7 where org_id = $1 and project_id = $2 returning project_id";
+
+    /// Links a project to a parent with a kind, or unlinks it with both null.
+    pub const LINK: &str = "update works.projects set parent_id = $3, link_kind = $4 where org_id = $1 and project_id = $2 returning project_id";
+
+    /// Archives a project, keeping the first time it was.
+    pub const ARCHIVE: &str = "update works.projects set archived_at = coalesce(archived_at, $3) where org_id = $1 and project_id = $2 returning project_id";
+}
+
+/// The queries on the people of a project.
+pub mod project_members {
+    /// Lists a project's people: person and role.
+    pub const LIST: &str = "select person_id, role_key from works.project_members where org_id = $1 and project_id = $2 order by person_id, role_key";
+
+    /// Removes every person from a project.
+    pub const CLEAR: &str = "delete from works.project_members where org_id = $1 and project_id = $2";
+
+    /// Adds a person to a project in a role.
+    pub const ADD: &str = "insert into works.project_members (org_id, project_id, person_id, role_key) values ($1, $2, $3, $4) on conflict do nothing";
 }
 
 /// Runs every migration's statements in the transaction; each is idempotent.

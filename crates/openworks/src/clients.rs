@@ -89,7 +89,7 @@ pub(crate) fn named(name: &str) -> Result<Value, Fail> {
     }
 }
 
-fn optional(text: &str) -> Value {
+pub(crate) fn optional(text: &str) -> Value {
     if text.is_empty() {
         Value::Null
     } else {
