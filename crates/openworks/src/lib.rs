@@ -25,6 +25,7 @@ mod members;
 mod operations;
 mod orgs;
 mod projects;
+mod seats;
 mod series;
 mod setup;
 mod sites;

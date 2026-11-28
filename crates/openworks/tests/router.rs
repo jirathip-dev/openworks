@@ -9,7 +9,8 @@ use openworks_core::{
     Approval, Change, Declaration, Fail, Hook, Id, Kind, Mount, Pack, Reach, Role, Row, Scope, Tx, Value, Word,
 };
 use openworks_db::{
-    approvals, attachments, clients, idempotency, job_orders, jobs, members, projects, sites, stages, tasks, workers,
+    approvals, attachments, clients, idempotency, job_orders, jobs, members, projects, seats, sites, stages, tasks,
+    workers,
 };
 
 type Statement = (&'static str, Vec<Value>);
@@ -130,6 +131,13 @@ fn job_rows(sql: &str, params: &[Value]) -> Option<Vec<Row>> {
             Some(vec![row])
         }
         workers::SET_ACTIVE => Some(vec![vec![params[1].clone()]]),
+        seats::GET => Some(vec![
+            ["s1", "jo", "Lead", "w1"]
+                .map(|field| Value::Text(field.to_owned()))
+                .into_iter()
+                .chain([Value::Int(1)])
+                .collect(),
+        ]),
         job_orders::GET => Some(vec![vec![
             params[1].clone(),
             Value::Text("jo".to_owned()),
@@ -484,14 +492,7 @@ fn body(operation: Operation) -> &'static str {
         | Operation::StageList
         | Operation::LostReasonList
         | Operation::ProjectRoleList
-        | Operation::ExportCreate
-        | Operation::WorkerList
-        | Operation::WorkerMe
-        | Operation::TeamList => "",
-        Operation::WorkerGet => "w1",
-        Operation::WorkerSave => "\nAda\nForeman",
-        Operation::WorkerSetActive => "w1\nno",
-        Operation::TeamSave => "\nCrew A",
+        | Operation::ExportCreate => "",
         Operation::ClientSave => "\nAcme\n",
         Operation::ClientSync => "ref-1\nAcme",
         Operation::SiteSave => "\nc1\nYard\n1 Main Road\n",
@@ -525,6 +526,21 @@ fn body(operation: Operation) -> &'static str {
         Operation::JobOrderSave => "jo\nSet out the first floor",
         Operation::TaskSave => "jo\nt1\tDIG\tDig\t#aa5500\t0\t2\t1600\t2500\t1\t\n\tPOUR\tPour\t\t2\t1\t\t\t\t",
         Operation::TaskArchive | Operation::TaskRestore => "t1",
+        _ => crew(operation),
+    }
+}
+
+fn crew(operation: Operation) -> &'static str {
+    match operation {
+        Operation::WorkerGet => "w1",
+        Operation::WorkerSetActive => "w1\nno",
+        Operation::WorkerSave => "\nAda\nForeman",
+        Operation::TeamSave => "\nCrew A",
+        Operation::SeatList => "jo",
+        Operation::SeatSave => "\njo\nLead\nw1\n1",
+        Operation::SeatSetDays => "s1\n2026-01-05\n2026-01-06",
+        Operation::SeatBooked => "2026-01-05\n2026-01-09",
+        _ => "",
     }
 }
 
@@ -815,7 +831,7 @@ fn migrate_runs_every_statement_and_again_does_the_same() {
     let once = host.committed.borrow().statements.clone();
     openworks.migrate().unwrap();
 
-    assert_eq!(once.len(), 34);
+    assert_eq!(once.len(), 36);
     assert!(once.iter().all(|(sql, _)| sql.contains("if not exists")));
     assert_eq!(host.committed.borrow().statements[once.len()..], once[..]);
 }
