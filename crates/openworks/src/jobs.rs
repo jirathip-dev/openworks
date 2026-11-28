@@ -47,7 +47,8 @@ pub const REOPEN: Declaration = openworks_core::write!(
 );
 
 /// Cancels the open job with the body's id.
-pub const CANCEL: Declaration = openworks_core::write!("cancel", needs: Write, queries: [GET_SQL, MOVE], cancel);
+pub const CANCEL: Declaration =
+    openworks_core::write!("cancel", needs: Write, queries: [GET_SQL, MOVE], cancel).by_hand();
 
 pub(crate) const FIELDS: [&str; 12] = [
     "project_id",

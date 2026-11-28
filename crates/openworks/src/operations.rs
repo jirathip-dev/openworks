@@ -1,8 +1,8 @@
 use openworks_core::{Mount, Reach};
 
 use crate::{
-    approvals, clients, exports, files, job_orders, jobs, members, orgs, plans, projects, setup, sites, tasks, teams,
-    workers,
+    approvals, clients, equipment, exports, files, job_orders, jobs, members, orgs, plans, projects, setup, sites,
+    tasks, teams, workers,
 };
 
 openworks_core::operations! {
@@ -64,6 +64,14 @@ openworks_core::operations! {
     TaskSave => tasks::SAVE,
     TaskArchive => tasks::ARCHIVE,
     TaskRestore => tasks::RESTORE,
+    EquipmentList => equipment::LIST,
+    EquipmentSave => equipment::SAVE,
+    EquipmentBook => equipment::BOOK_THING,
+    EquipmentFill => equipment::FILL_NEED,
+    EquipmentCancel => equipment::CANCEL,
+    EquipmentNeed => equipment::NEED,
+    EquipmentNeeds => equipment::NEEDS,
+    EquipmentTimeline => equipment::TIMELINE,
     PlanGroups => plans::GROUPS,
     PlanGroupsSave => plans::GROUPS_SAVE,
     PlanVersions => plans::VERSIONS,
@@ -85,7 +93,7 @@ pub(crate) const KEY: &str = "orgs";
 
 pub(crate) const CLIENTS: &str = "clients";
 
-const HOMES: [(&str, &str); 13] = [
+const HOMES: [(&str, &str); 14] = [
     ("/orgs", KEY),
     ("/files", "files"),
     ("/approvals", "approvals"),
@@ -95,6 +103,7 @@ const HOMES: [(&str, &str); 13] = [
     ("/jobs", "jobs"),
     ("/job-orders", "job_orders"),
     ("/tasks", "tasks"),
+    ("/equipment", "equipment"),
     ("/plans", "plans"),
     ("/exports", "exports"),
     ("/workers", "workers"),
@@ -132,6 +141,14 @@ impl Operation {
             Self::TaskList | Self::TaskByProject | Self::TaskSave | Self::TaskArchive | Self::TaskRestore => {
                 ("/tasks", "tasks")
             }
+            Self::EquipmentList
+            | Self::EquipmentSave
+            | Self::EquipmentBook
+            | Self::EquipmentFill
+            | Self::EquipmentCancel
+            | Self::EquipmentNeed
+            | Self::EquipmentNeeds
+            | Self::EquipmentTimeline => ("/equipment", "equipment"),
             Self::PlanGroups
             | Self::PlanGroupsSave
             | Self::PlanVersions

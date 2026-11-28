@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use openworks_core::{
     Approval, Call, Change, Declaration, Extension, Fail, Handler, Hook, Id, Kind, Mount, Pack, Print, Reach, Role,
-    Row, Tx, Value, Who,
+    Row, Tx, Value, Who, Word,
 };
 
-pub use openworks_core::{Files, Via};
+pub use openworks_core::{Files, Offer, Via};
 pub use operations::Operation;
 pub use series::{Period, Series};
 
@@ -14,6 +14,7 @@ use operations::{CLIENTS, KEY};
 mod approvals;
 mod clients;
 mod due;
+mod equipment;
 mod exports;
 mod files;
 mod idempotency;
@@ -21,6 +22,7 @@ mod import;
 mod job_orders;
 mod jobs;
 mod json;
+mod mcp;
 mod members;
 mod operations;
 mod orgs;
@@ -75,6 +77,15 @@ pub struct Response {
 pub enum Refused {
     DuplicatePath(String),
     Unscoped(Vec<&'static str>),
+}
+
+/// An operation an assistant may call: its tool name, its path, the word it needs and whether it reads or proposes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Tool {
+    pub name: String,
+    pub path: String,
+    pub needs: Word,
+    pub offer: Offer,
 }
 
 #[derive(Clone, Copy)]
@@ -188,6 +199,23 @@ impl<H: Host> Openworks<H> {
         json::openapi(&self.routes, &self.extensions)
     }
 
+    /// Every mounted operation an assistant is offered, by path: a read is a tool, a write a proposal.
+    pub fn tools(&self) -> Vec<Tool> {
+        let mut tools: Vec<Tool> = self
+            .routes
+            .iter()
+            .filter(|(_, route)| route.reach != Reach::Off && route.declaration.offer() != Offer::ByHand)
+            .map(|(path, route)| Tool {
+                name: path.trim_start_matches('/').replace('/', "_"),
+                path: path.clone(),
+                needs: route.declaration.needs(),
+                offer: route.declaration.offer(),
+            })
+            .collect();
+        tools.sort_by(|one, other| one.path.cmp(&other.path));
+        tools
+    }
+
     /// Runs every migration in one transaction.
     pub fn migrate(&self) -> Result<(), Fail> {
         self.host.transact(&mut |tx| openworks_db::migrate(tx))
@@ -240,15 +268,20 @@ impl<H: Host> Openworks<H> {
 
     /// Answers a request: signs the caller in as a member, checks reach and the needed word, runs the operation.
     pub fn handle(&self, request: &Request) -> Response {
+        self.respond(request, None)
+    }
+
+    fn respond(&self, request: &Request, via: Option<Via>) -> Response {
         let Some(route) = self.routes.get(&request.path) else {
             return answer(404, "no such operation");
         };
         if route.reach == Reach::Off {
             return answer(404, "no such operation");
         }
-        let Some(caller) = self.host.who(&request.credential) else {
+        let Some(mut caller) = self.host.who(&request.credential) else {
             return answer(401, "sign in");
         };
+        caller.via = via.unwrap_or(caller.via);
         match self.call(
             *route,
             &|tx| self.sign_in(tx, &caller),
