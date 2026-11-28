@@ -13,6 +13,10 @@ pub const MIGRATIONS: &[(&str, &str)] = &[
     ),
     ("0004_members", include_str!("../migrations/0004_members.sql")),
     ("0005_approvals", include_str!("../migrations/0005_approvals.sql")),
+    (
+        "0006_clients_and_sites",
+        include_str!("../migrations/0006_clients_and_sites.sql"),
+    ),
 ];
 
 /// Leaves the audit row of a write.
@@ -118,6 +122,48 @@ pub mod members {
 
     /// Removes a member by email.
     pub const REMOVE: &str = "delete from works.members where org_id = $1 and email = $2";
+}
+
+/// The queries on clients.
+pub mod clients {
+    /// Lists every client: id, name, host reference and when it was deactivated.
+    pub const LIST: &str = "select client_id, name, host_ref, deactivated_at from works.clients where org_id = $1 order by name, client_id";
+
+    /// Reads one client: id, name, host reference and when it was deactivated.
+    pub const GET: &str =
+        "select client_id, name, host_ref, deactivated_at from works.clients where org_id = $1 and client_id = $2";
+
+    /// Adds a client.
+    pub const ADD: &str = "insert into works.clients (org_id, client_id, name, host_ref) values ($1, $2, $3, $4)";
+
+    /// Changes a client's name and host reference.
+    pub const SAVE: &str =
+        "update works.clients set name = $3, host_ref = $4 where org_id = $1 and client_id = $2 returning client_id";
+
+    /// Deactivates a client, keeping the first time it was.
+    pub const DEACTIVATE: &str = "update works.clients set deactivated_at = coalesce(deactivated_at, $3) where org_id = $1 and client_id = $2 returning client_id";
+
+    /// Adds the client the host knows by a reference, or renames it.
+    pub const SYNC: &str = "insert into works.clients (org_id, client_id, name, host_ref) values ($1, $2, $3, $4) on conflict (org_id, host_ref) do update set name = excluded.name returning client_id";
+}
+
+/// The queries on sites.
+pub mod sites {
+    /// Lists a client's sites: id, client id, name, address, map link and when it was deactivated.
+    pub const LIST: &str = "select site_id, client_id, name, address, map_url, deactivated_at from works.sites where org_id = $1 and client_id = $2 order by name, site_id";
+
+    /// Reads one site: id, client id, name, address, map link and when it was deactivated.
+    pub const GET: &str = "select site_id, client_id, name, address, map_url, deactivated_at from works.sites where org_id = $1 and site_id = $2";
+
+    /// Adds a site under a client.
+    pub const ADD: &str =
+        "insert into works.sites (org_id, site_id, client_id, name, address, map_url) values ($1, $2, $3, $4, $5, $6)";
+
+    /// Changes the name, address and map link of a site under a client.
+    pub const SAVE: &str = "update works.sites set name = $4, address = $5, map_url = $6 where org_id = $1 and site_id = $2 and client_id = $3 returning site_id";
+
+    /// Deactivates a site, keeping the first time it was.
+    pub const DEACTIVATE: &str = "update works.sites set deactivated_at = coalesce(deactivated_at, $3) where org_id = $1 and site_id = $2 returning site_id";
 }
 
 /// Runs every migration's statements in the transaction; each is idempotent.
